@@ -108,7 +108,7 @@ If you find any errors or have suggestions for improvement, feel free to open
 an **issue** or **pull request**. Feedback is always welcome.
 
 *Happy learning.*
-— Truong Dat, 2024
+— Truong Dat, 2026
 
 ---
 
