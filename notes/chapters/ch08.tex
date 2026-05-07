@@ -1,0 +1,229 @@
+% =========================================================
+%  Chapter 8: Unsupervised Learning
+% =========================================================
+\chapter{Unsupervised Learning}
+
+%----------------------------------------------------------
+\section{Clustering}
+
+\subsection{Overview and Motivation}
+
+\textbf{Clustering} is one of the foundational unsupervised learning
+algorithms. Its goal is to automatically discover patterns, groupings, or
+structures within a dataset --- without any human-provided labels.
+
+\begin{definition}[Cluster]
+A \textbf{cluster} is a subset of training examples such that points within
+the subset are more similar to one another than to points outside it.
+\end{definition}
+
+Real-world applications:
+\begin{enumerate}
+\item \textbf{News aggregation}: grouping articles by topic.
+\item \textbf{Market segmentation}: identifying distinct customer groups.
+\item \textbf{Genomics}: grouping individuals by genetic expression data.
+\item \textbf{Astronomy}: grouping celestial bodies into coherent structures.
+\item \textbf{Image compression}: representing an image using $K$ colours.
+\end{enumerate}
+
+\begin{center}
+\begin{tabular}{lp{5.2cm}p{5.2cm}}
+\toprule
+\textbf{Feature} & \textbf{Supervised learning} & \textbf{Clustering}\\
+\midrule
+Data format    & $(x,y)$ pairs with labels  & $x$ only\\
+Goal           & Learn $f$ s.t.\ $f(x)\approx y$ & Discover groups\\
+Error signal   & Labelled ground truth      & Cost / distortion function\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{The K-Means Algorithm}
+
+K-means partitions $m$ examples into $K$ clusters by alternating two steps.
+
+\paragraph{Initialisation.} Randomly select $K$ distinct training examples and
+place initial centroids $\mu_1,\ldots,\mu_K$ at those locations.
+
+\paragraph{Step 1 --- Cluster assignment.}
+\[c^{(i)}:=\underset{k}{\argmin}\;\|x^{(i)}-\mu_k\|^2.\]
+
+\paragraph{Step 2 --- Centroid update.}
+\[\mu_k:=\frac{1}{|\mathcal{C}_k|}\sum_{i:\,c^{(i)}=k}x^{(i)}.\]
+
+If $\mathcal{C}_k=\emptyset$, eliminate that cluster (reduce $K$ by one).
+
+\begin{figure}[h]
+\centering
+\begin{subfigure}[b]{0.30\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.6]
+\draw[->](-0.3,0)--(5.8,0)node[right]{$x_1$};
+\draw[->](0,-0.3)--(0,5.5)node[above]{$x_2$};
+\foreach \x/\y in {0.6/1.2,1.0/0.8,1.4/1.5,0.8/2.0,1.2/0.5,
+    2.8/3.8,3.2/4.2,2.5/3.5,3.5/3.8,3.0/4.5,
+    4.2/1.0,4.5/1.8,4.0/0.8,4.8/1.4,4.3/2.2}{
+  \fill[black!30](\x,\y)circle(2.5pt);}
+\fill[cA](1.5,3.5)node[above right,font=\tiny]{$\mu_1$}circle(5pt);
+\fill[cB](3.0,1.5)node[above right,font=\tiny]{$\mu_2$}circle(5pt);
+\fill[cC](4.0,3.5)node[above right,font=\tiny]{$\mu_3$}circle(5pt);
+\end{tikzpicture}
+\caption{Initialisation}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.30\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.6]
+\draw[->](-0.3,0)--(5.8,0)node[right]{$x_1$};
+\draw[->](0,-0.3)--(0,5.5)node[above]{$x_2$};
+\foreach \x/\y in {0.6/1.2,1.0/0.8,1.4/1.5,0.8/2.0,1.2/0.5}
+  {\fill[cA!80](\x,\y)circle(2.5pt);}
+\foreach \x/\y in {4.2/1.0,4.5/1.8,4.0/0.8,4.8/1.4,4.3/2.2}
+  {\fill[cB!80](\x,\y)circle(2.5pt);}
+\foreach \x/\y in {2.8/3.8,3.2/4.2,2.5/3.5,3.5/3.8,3.0/4.5}
+  {\fill[cC!80](\x,\y)circle(2.5pt);}
+\fill[cA](1.5,3.5)circle(5pt);
+\fill[cB](3.0,1.5)circle(5pt);
+\fill[cC](4.0,3.5)circle(5pt);
+\end{tikzpicture}
+\caption{After assignment}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.30\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.6]
+\draw[->](-0.3,0)--(5.8,0)node[right]{$x_1$};
+\draw[->](0,-0.3)--(0,5.5)node[above]{$x_2$};
+\foreach \x/\y in {0.6/1.2,1.0/0.8,1.4/1.5,0.8/2.0,1.2/0.5}
+  {\fill[cA!80](\x,\y)circle(2.5pt);}
+\foreach \x/\y in {4.2/1.0,4.5/1.8,4.0/0.8,4.8/1.4,4.3/2.2}
+  {\fill[cB!80](\x,\y)circle(2.5pt);}
+\foreach \x/\y in {2.8/3.8,3.2/4.2,2.5/3.5,3.5/3.8,3.0/4.5}
+  {\fill[cC!80](\x,\y)circle(2.5pt);}
+\fill[cD](1.0,1.2)node[above right,font=\tiny]{$\mu_1$}circle(5pt);
+\fill[cD](4.36,1.44)node[above right,font=\tiny]{$\mu_2$}circle(5pt);
+\fill[cD](3.0,3.96)node[above right,font=\tiny]{$\mu_3$}circle(5pt);
+\end{tikzpicture}
+\caption{Converged}
+\end{subfigure}
+\caption{K-means with $K=3$. Coloured points are cluster assignments; orange
+diamonds are centroids.}
+\label{fig:kmeans}
+\end{figure}
+
+\subsection{The K-Means Cost Function}
+
+K-means minimises the \textbf{distortion function}:
+\[J=\frac{1}{m}\sum_{i=1}^m\|x^{(i)}-\mu_{c^{(i)}}\|^2.\]
+
+Each step provably decreases $J$ or leaves it unchanged, so convergence is
+guaranteed. An increasing $J$ signals a code bug.
+
+\paragraph{Multiple initialisations.} Run K-means $R=50$--$1000$ times with
+different random initialisations; keep the solution with the lowest $J$.
+This is especially important for small $K$.
+
+\subsection{Choosing $K$}
+
+\paragraph{Elbow method.} Plot $J$ vs.\ $K$; look for a sharp bend. Often
+unreliable because many real-world curves lack a clear elbow.
+
+\paragraph{Downstream purpose.} Choose $K$ based on the end objective
+(e.g.\ S/M/L for T-shirt sizing, or quality--compression trade-off for image
+compression).
+
+%----------------------------------------------------------
+\section{Anomaly Detection}
+
+\subsection{Introduction and Types of Anomalies}
+
+\textbf{Anomaly detection} identifies data points that deviate significantly
+from normal behaviour.
+
+\begin{definition}[Anomaly]
+$x_{\text{test}}$ is anomalous if $p(x_{\text{test}})<\epsilon$
+under a model of normal data.
+\end{definition}
+
+Three canonical types:
+\begin{itemize}
+\item \textbf{Point anomalies}: a single point far from the distribution
+  (e.g.\ a credit card transaction of \$15{,}000 for a customer spending
+  \$500/month).
+\item \textbf{Contextual anomalies}: normal in absolute terms but abnormal
+  in context (e.g.\ $85^\circ$F in January in New York).
+\item \textbf{Collective anomalies}: a group of points individually normal but
+  anomalous together (e.g.\ thousands of packets from one IP in seconds,
+  suggesting a DoS attack).
+\end{itemize}
+
+Applications: fraud detection, cybersecurity, manufacturing quality control,
+healthcare monitoring, data centre monitoring.
+
+\subsection{The Gaussian Density Model}
+
+The dominant framework: fit a Gaussian to each feature, then flag examples
+with very low joint probability.
+
+If $X\sim\mathcal{N}(\mu,\sigma^2)$, its PDF is:
+\[p(x;\mu,\sigma^2)=\frac{1}{\sqrt{2\pi}\,\sigma}
+\exp\!\Bigl(-\frac{(x-\mu)^2}{2\sigma^2}\Bigr).\]
+
+Maximum likelihood estimates from training data:
+\[\hat{\mu}=\frac{1}{m}\sum_{i=1}^m x^{(i)},\qquad
+\hat{\sigma}^2=\frac{1}{m}\sum_{i=1}^m(x^{(i)}-\hat{\mu})^2.\]
+
+\subsection{Multi-Dimensional Algorithm}
+
+Under the independence assumption, the joint density factors as:
+\[p(\vec{x})=\prod_{j=1}^n p(x_j;\mu_j,\sigma_j^2).\]
+
+\paragraph{Algorithm.}
+\begin{enumerate}[label=\textbf{Step \arabic*:}]
+\item Choose $n$ informative features.
+\item Fit $\mu_j$ and $\sigma_j^2$ for each feature $j$ on the training set.
+\item For a new example: compute $p(\vec{x})$; flag as anomaly if
+  $p(\vec{x})<\epsilon$.
+\end{enumerate}
+
+\subsection{Evaluation on Skewed Data}
+
+Use precision, recall, and $F_1$ (not accuracy). Choose $\epsilon$ to maximise
+$F_1$ on the cross-validation set.
+
+\subsection{Anomaly Detection vs.\ Supervised Learning}
+
+\begin{center}
+\begin{tabular}{lp{5.2cm}p{5.2cm}}
+\toprule
+\textbf{Feature} & \textbf{Anomaly Detection} & \textbf{Supervised Learning}\\
+\midrule
+Positive examples & Very few (0--20) & Many\\
+Anomaly types & Diverse, unpredictable & Recurring, resembles training data\\
+Use case & Fraud, novel defects & Spam, known defects\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Feature Engineering Tips}
+
+\begin{itemize}
+\item Apply $\log(x)$ or $x^p$ transforms if a feature is heavily skewed.
+\item Create ratio features (e.g.\ CPU load / network traffic) to capture
+  anomalous relationships between features.
+\item Perform error analysis: inspect missed anomalies to design new features.
+\end{itemize}
+
+%----------------------------------------------------------
+\section*{Chapter Summary}
+\addcontentsline{toc}{section}{Chapter Summary}
+
+\paragraph{Clustering.} K-means alternates between assignment and centroid
+update, minimising the distortion $J=\tfrac{1}{m}\sum\|x^{(i)}-\mu_{c^{(i)}}\|^2$.
+Run multiple random initialisations. Choose $K$ based on downstream purpose.
+
+\paragraph{Anomaly detection.} Fits a Gaussian density model to normal data
+and flags examples with $p(\vec{x})<\epsilon$. Evaluation uses $F_1$; choose
+$\epsilon$ on the CV set. Use anomaly detection when anomaly types are diverse
+and few positive examples exist; use supervised learning when they are
+recurring and plentiful.

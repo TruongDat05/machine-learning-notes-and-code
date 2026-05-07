@@ -1,0 +1,333 @@
+% =========================================================
+%  Chapter 7: Decision Trees
+% =========================================================
+\chapter{Decision Trees}
+
+Decision trees are among the most powerful and interpretable machine learning
+algorithms in widespread use. Unlike linear models, they naturally capture
+complex non-linear relationships without requiring feature scaling or
+distributional assumptions, and they serve as the building block for advanced
+ensemble methods --- Random Forests and XGBoost --- that consistently rank
+among the top-performing algorithms on structured tabular data.
+
+\begin{remark}
+Decision trees are particularly effective for \textbf{tabular (structured)
+data}. For unstructured data (images, audio, raw text), neural networks are
+generally preferred.
+\end{remark}
+
+%----------------------------------------------------------
+\section{Decision Tree Basics}
+
+\subsection{Dataset Representation}
+
+Consider classifying animals as cats or not, given three observable features:
+\begin{itemize}
+\item $x_1$: Ear Shape --- Pointy or Floppy
+\item $x_2$: Face Shape --- Round or Not Round
+\item $x_3$: Whiskers --- Present or Absent
+\item $y\in\{0,1\}$: $1=$Cat, $0=$Not Cat
+\end{itemize}
+
+Decision trees can handle both categorical and continuous features. For
+categorical features with more than two values, one-hot encoding
+(Section~\ref{sec:ohe}) converts each category into a binary indicator.
+
+\subsection{Anatomy of a Decision Tree}
+
+A decision tree is a hierarchical, acyclic graph encoding a sequence of
+if--then--else rules.
+
+\begin{description}
+\item[Root Node] The topmost node. Receives the full training dataset.
+\item[Internal Nodes] Test a specific feature and route examples to child
+  branches based on the outcome.
+\item[Leaf Nodes] Terminal nodes storing a class label (classification) or
+  numeric value (regression).
+\end{description}
+
+The \textbf{depth} of a node is the number of edges from the root. The root
+is at depth~$0$.
+
+\subsection{Inference}
+
+To classify a new example:
+\begin{enumerate}
+\item Start at the root node.
+\item Evaluate the feature tested at the current node.
+\item Follow the matching branch.
+\item Repeat at each subsequent node.
+\item Return the prediction stored in the reached leaf.
+\end{enumerate}
+Inference is $O(d)$ in tree depth $d$ --- very efficient.
+
+%----------------------------------------------------------
+\section{Decision Tree Learning}
+
+\subsection{The Recursive Splitting Algorithm}
+
+Tree construction proceeds top-down, greedy, and recursively:
+\begin{enumerate}
+\item Place the entire training set at the root.
+\item Select the feature that maximises Information Gain.
+\item Split examples into subsets by feature value.
+\item Recursively repeat on each child subset.
+\item Apply stopping criteria to decide when a node becomes a leaf.
+\end{enumerate}
+
+\subsection{Entropy: Measuring Impurity}
+\label{sec:entropy}
+
+At any node, the training subset may mix multiple classes. The degree of mixing
+is called \textbf{impurity}. \textbf{Entropy} is the standard measure:
+
+\begin{equation}
+H(p_1)=-p_1\log_2 p_1-(1-p_1)\log_2(1-p_1),
+\label{eq:entropy}
+\end{equation}
+where $p_1$ is the positive-class fraction. Convention: $0\log_2 0\equiv 0$.
+
+Properties:
+\begin{itemize}
+\item $H(p_1)=0$ when $p_1\in\{0,1\}$ (pure node).
+\item $H(p_1)=1$ when $p_1=0.5$ (maximum uncertainty).
+\item $H$ is concave and symmetric, achieving its maximum at $p_1=0.5$.
+\end{itemize}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.62\textwidth, height=5.5cm,
+  xlabel={Positive-class fraction $p_1$}, ylabel={Entropy $H(p_1)$ (bits)},
+  xmin=0, xmax=1, ymin=0, ymax=1.12,
+  xtick={0,0.25,0.5,0.75,1}, ytick={0,0.25,0.5,0.75,1},
+  grid=both, grid style={gray!15, thin},
+  tick label style={font=\small}, label style={font=\small},
+  axis lines=left,
+  every axis plot/.append style={line width=1.5pt}]
+\addplot[pBlue, domain=0.001:0.999, samples=200]
+  {-x*log2(x)-(1-x)*log2(1-x)};
+\addplot[only marks, mark=*, color=pRed, mark size=3.5pt]
+  coordinates{(0.5,1.0)};
+\node[above right, font=\small, pRed] at (axis cs:0.52,1.0) {max at $p_1=0.5$};
+\end{axis}
+\end{tikzpicture}
+\caption{Binary entropy $H(p_1)$. It peaks at 1 bit (maximum uncertainty) when
+the two classes are equally likely, and vanishes at pure nodes.}
+\label{fig:entropy-curve}
+\end{figure}
+
+\begin{center}
+\begin{tabular}{lccr}
+\toprule
+\textbf{Composition} & $p_1$ & $H(p_1)$ & \textbf{Impurity}\\
+\midrule
+6 cats, 0 dogs & 1.000 & 0.000 & None (pure)\\
+5 cats, 1 dog  & 0.833 & 0.650 & Low\\
+4 cats, 2 dogs & 0.667 & 0.918 & Moderate\\
+3 cats, 3 dogs & 0.500 & 1.000 & Maximum\\
+0 cats, 6 dogs & 0.000 & 0.000 & None (pure)\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Information Gain}
+\label{sec:infogain}
+
+Let $n$ be the number of examples at the current node, $n_L$ and $n_R$ those
+reaching the left and right children. The \textbf{Information Gain} is:
+\begin{equation}
+\IG(f)=H(p_1)-\Bigl[w^L H(p_1^L)+w^R H(p_1^R)\Bigr],\quad
+w^L=\frac{n_L}{n},\;w^R=\frac{n_R}{n}.
+\label{eq:ig}
+\end{equation}
+IG is always non-negative (by convexity of entropy) and equals zero when the
+split provides no useful information.
+
+\begin{example}
+Root: 10 examples, 5 cats, 5 dogs $\Rightarrow H(p_1)=1$.
+
+\textbf{Ear Shape:} Left (5 ex., 4 cats): $H=0.72$. Right (5 ex., 1 cat):
+$H=0.72$. $\IG=1-[0.5(0.72)+0.5(0.72)]=\mathbf{0.28}$.
+
+\textbf{Face Shape:} $\IG\approx\mathbf{0.03}$.
+
+\textbf{Whiskers:} $\IG\approx\mathbf{0.12}$.
+
+\textbf{Decision}: select \textit{Ear Shape} (largest $\IG$).
+\end{example}
+
+\subsection{Stopping Criteria}
+\label{sec:stopping}
+
+\begin{enumerate}
+\item \textbf{Perfect purity}: stop when $H=0$.
+\item \textbf{Maximum depth}: stop at depth $d_{\max}$.
+\item \textbf{Minimum IG}: stop if best $\IG<\epsilon_{\IG}$.
+\item \textbf{Minimum node size}: stop if $n<n_{\min}$.
+\end{enumerate}
+
+\subsection{One-Hot Encoding}
+\label{sec:ohe}
+
+\begin{definition}[One-Hot Encoding]
+A categorical feature $x$ with $k$ values is replaced by $k$ binary features
+$b_1,\ldots,b_k$, where $b_j=1$ if $x$ equals the $j$-th category.
+\end{definition}
+
+\begin{example}
+Ear Shape $\in\{\text{Pointy, Floppy, Oval}\}$:
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+Shape & Is Pointy? & Is Floppy? & Is Oval?\\
+\midrule
+Pointy & 1 & 0 & 0\\
+Floppy & 0 & 1 & 0\\
+Oval   & 0 & 0 & 1\\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{example}
+
+After OHE, every feature is binary and the standard IG-based splitting applies.
+
+\subsection{Regression Trees}
+
+A \textbf{regression tree} predicts a continuous target. A regression leaf
+stores the \textbf{mean} of the target values of all training examples it
+receives:
+\[
+\hat{y}_{\text{leaf}}=\frac{1}{|\mathcal{S}_{\text{leaf}}|}
+\sum_{i\in\mathcal{S}_{\text{leaf}}}y_i.
+\]
+
+The splitting criterion is \textbf{variance reduction}:
+\begin{equation}
+\Delta\sigma^2=\sigma^2_{\text{root}}
+-\Bigl[\frac{n_L}{n}\,\sigma^2_L+\frac{n_R}{n}\,\sigma^2_R\Bigr].
+\label{eq:var-reduction}
+\end{equation}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Aspect} & \textbf{Classification tree} & \textbf{Regression tree}\\
+\midrule
+Target $y$       & Discrete label   & Continuous number\\
+Leaf prediction  & Majority class   & Mean of examples\\
+Split criterion  & Information Gain & Variance Reduction\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%----------------------------------------------------------
+\section{Tree Ensembles}
+
+\subsection{Motivation: Instability of Single Trees}
+
+A single decision tree has \textbf{high variance}: a small perturbation in the
+training data can lead to a completely different tree structure. The solution is
+to combine many diverse trees.
+
+\subsection{Bootstrapping and Bagging}
+
+\textbf{Bootstrapping}: draw $m$ examples with replacement from a training set
+of size $m$. The resulting sample contains some examples multiple times and
+omits others. On average, each bootstrap sample includes $\approx63.2\%$ of the
+unique examples.
+
+\textbf{Bagging} (Bootstrap Aggregating): train an independent decision tree on
+each of $B$ bootstrap samples, then aggregate predictions by majority vote
+(classification) or averaging (regression).
+
+\textbf{Hyperparameter $B$}: typical values $B\in[64,128]$. Increasing $B$
+never hurts accuracy but yields diminishing returns beyond $\approx128$.
+
+\subsection{Random Forests}
+\label{sec:rf}
+
+In a bagged ensemble all trees share the same full feature set; if one feature
+is a strong predictor, nearly every tree will use it as the root split, making
+trees highly correlated. \textbf{Random Forest} adds a second source of
+randomness: at each node, only a random subset of $k<n$ features is evaluated:
+
+\begin{equation}
+k=\lfloor\sqrt{n}\rfloor\quad\text{(standard for classification)}.
+\label{eq:rf-k}
+\end{equation}
+
+This \emph{decorrelates} the trees, amplifying the variance-reduction benefit
+of averaging.
+
+\subsection{Boosting and XGBoost}
+
+\textbf{Bagging} trains trees \emph{in parallel} on independent subsamples.
+\textbf{Boosting} trains trees \emph{sequentially}: each new tree focuses on
+examples the current ensemble handles poorly. Key insight: concentrate effort
+on weaknesses, not strengths (like deliberate practice).
+
+\textbf{XGBoost} (eXtreme Gradient Boosting) frames boosting as gradient
+descent in function space. Key engineering features:
+\begin{itemize}
+\item Built-in $L_1$ and $L_2$ regularisation on leaf weights.
+\item Efficient $O(n\log n)$ split-finding via quantile sketches.
+\item CPU cache-aware computation.
+\item Native handling of missing values.
+\end{itemize}
+
+\begin{lstlisting}[caption={XGBoost for classification and regression}]
+from xgboost import XGBClassifier, XGBRegressor
+
+# Classification
+clf = XGBClassifier(n_estimators=100, max_depth=6,
+                    learning_rate=0.1, random_state=42)
+clf.fit(X_train, y_train)
+y_pred = clf.predict(X_test)
+
+# Regression
+reg = XGBRegressor(n_estimators=100, max_depth=6,
+                   learning_rate=0.1, random_state=42)
+reg.fit(X_train, y_train)
+\end{lstlisting}
+
+\subsection{Decision Trees vs.\ Neural Networks}
+
+\begin{center}
+\begin{tabular}{lp{5cm}p{5cm}}
+\toprule
+\textbf{Criterion} & \textbf{Decision Trees/Ensembles} & \textbf{Neural Networks}\\
+\midrule
+Best data type    & Tabular/structured         & Unstructured, mixed\\
+Training speed    & Fast                        & Slow (large models)\\
+Interpretability  & High (single trees)         & Low (black box)\\
+Transfer learning & Not available               & Yes\\
+Feature scaling   & Not required               & Recommended\\
+Recommended tool  & XGBoost, Random Forest     & PyTorch, TensorFlow\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Practical guidance}:
+\begin{itemize}
+\item Use XGBoost/Random Forest for tabular data, fast iteration, or when
+  interpretability is required.
+\item Use neural networks for images, text, audio, video, or mixed modalities.
+\end{itemize}
+
+%----------------------------------------------------------
+\section*{Chapter Summary}
+\addcontentsline{toc}{section}{Chapter Summary}
+
+\textbf{Decision Tree Basics}: hierarchical if--then--else structure traversed
+in $O(d)$ time; handles categorical and continuous features.
+
+\textbf{Learning algorithm}: recursive top-down splitting that maximises
+Information Gain $\IG(f)=H(p_1)-[w^L H(p_1^L)+w^R H(p_1^R)]$ at each node.
+Regression trees replace entropy with variance reduction.
+
+\textbf{Tree Ensembles}: bagging (bootstrap + average) reduces variance.
+Random Forests add feature randomisation to decorrelate trees. XGBoost uses
+sequential boosting with gradient descent in function space, achieving
+state-of-the-art performance on structured data.

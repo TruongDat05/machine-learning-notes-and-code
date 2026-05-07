@@ -1,0 +1,544 @@
+% =========================================================
+%  Chapter 3: Classification
+% =========================================================
+\chapter{Classification}
+
+In the previous two chapters we studied \emph{linear regression}, whose goal
+was to predict a continuous numerical output such as a house price or a
+temperature. We now make a fundamental shift: instead of predicting a number
+along a continuous spectrum, we wish to assign each input to one of a
+\emph{finite set of categories}. This task is called \textbf{classification}.
+
+Classification problems arise everywhere in applied machine learning:
+\begin{itemize}
+\item \textbf{Spam detection}: is an incoming email spam or legitimate?
+\item \textbf{Fraud detection}: is a credit-card transaction fraudulent?
+\item \textbf{Medical diagnosis}: is a tumour malignant or benign?
+\item \textbf{Image recognition}: which digit (0--9) appears in this image?
+\item \textbf{Sentiment analysis}: is a product review positive or negative?
+\end{itemize}
+
+The simplest and most common form is \textbf{binary classification}, where the
+output $y$ takes exactly two values. By convention we encode these as:
+\[y\in\{0,\,1\},\]
+where $y=1$ denotes the \emph{positive class} (presence of the condition) and
+$y=0$ the \emph{negative class} (absence). This naming carries no moral
+connotation.
+
+%----------------------------------------------------------
+\section{Classification with Logistic Regression}
+\label{sec:logreg}
+
+\subsection{Why Linear Regression Is Inadequate for Classification}
+
+A natural first instinct is to reuse the linear regression model
+$f_{\vec{w},b}(\vec{x})=\vec{w}\cdot\vec{x}+b$ for classification by
+thresholding: predict $\hat{y}=1$ if $f>0.5$, else $\hat{y}=0$. While this
+can work in simple situations, it suffers from two fundamental problems.
+
+\paragraph{Problem 1: The outlier effect.}
+Suppose we have a well-separated dataset of benign ($y=0$) and malignant
+($y=1$) tumours plotted against tumour size. A linear model may yield a
+reasonable boundary at some threshold $x^*$. Now add a single extreme outlier
+— a very large tumour that is still malignant. The least-squares line is
+pulled toward the outlier, shifting the boundary $x^*$ and misclassifying
+previously correct points. Linear regression is globally sensitive to every
+training point; one aberrant observation can corrupt the boundary for the rest.
+
+\paragraph{Problem 2: Unbounded output range.}
+Linear regression produces outputs in $(-\infty,+\infty)$. For a yes/no
+problem, predicting values such as $1.8$ or $-0.4$ is awkward: they cannot be
+interpreted as probabilities. We need a model whose output is
+\emph{guaranteed} to lie in $[0,1]$.
+
+\subsection{The Sigmoid (Logistic) Function}
+
+The resolution is to \emph{squash} the linear output through a function that
+maps $\R$ onto $(0,1)$. The standard choice is the \textbf{sigmoid function}:
+
+\begin{definition}[Sigmoid Function]
+\[
+g(z)=\frac{1}{1+e^{-z}},\qquad z\in\R.
+\]
+\end{definition}
+
+\paragraph{Key properties.}
+\begin{itemize}
+\item As $z\to+\infty$: $e^{-z}\to 0$, so $g(z)\to 1$.
+\item As $z\to-\infty$: $e^{-z}\to\infty$, so $g(z)\to 0$.
+\item At $z=0$: $g(0)=\tfrac{1}{2}$.
+\item $g$ is smooth, strictly increasing, and S-shaped (sigmoidal).
+\item Derivative: $g'(z)=g(z)\bigl(1-g(z)\bigr)$.
+\end{itemize}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=10cm, height=6.5cm,
+  xlabel={$z$}, ylabel={$g(z)$},
+  xmin=-6.5, xmax=6.5, ymin=-0.05, ymax=1.1,
+  xtick={-6,-4,-2,0,2,4,6},
+  ytick={0,0.25,0.5,0.75,1},
+  grid=both, grid style={gray!15, thin},
+  tick label style={font=\small}, label style={font=\small},
+  axis lines=left,
+  every axis plot/.append style={line width=1.5pt}]
+\addplot[pBlue, smooth, samples=200, domain=-6.5:6.5]
+  {1/(1+exp(-x))};
+\addplot[pGray, dashed, thin] coordinates{(-6.5,0.5)(6.5,0.5)};
+\addplot[pGray, dashed, thin] coordinates{(0,-0.05)(0,0.5)};
+\addplot[only marks, mark=*, color=pRed, mark size=3.5pt]
+  coordinates{(0,0.5)};
+\node[below right, font=\small] at (axis cs:0.1,0.49) {$(0,\;0.5)$};
+\node[right, font=\small, pBlue] at (axis cs:3.5,0.92) {$g(z)\to 1$};
+\node[right, font=\small, pBlue] at (axis cs:3.5,0.08) {$g(z)\to 0$};
+\end{axis}
+\end{tikzpicture}
+\caption{The sigmoid (logistic) function. It maps every real number to $(0,1)$
+and equals exactly $0.5$ at $z=0$.}
+\label{fig:sigmoid}
+\end{figure}
+
+\subsection{The Logistic Regression Model}
+
+Logistic regression is built in two stages.
+
+\textbf{Stage 1 --- Linear combination.} Compute a weighted sum:
+\[z=\vec{w}\cdot\vec{x}+b.\]
+
+\textbf{Stage 2 --- Sigmoid activation.} Pass $z$ through the sigmoid:
+\[
+f_{\vec{w},b}(\vec{x})=g(z)=g(\vec{w}\cdot\vec{x}+b)
+=\frac{1}{1+e^{-(\vec{w}\cdot\vec{x}+b)}}.
+\]
+
+The output $f_{\vec{w},b}(\vec{x})$ is interpreted as a \emph{probability}:
+\[
+f_{\vec{w},b}(\vec{x})=P(y=1\mid\vec{x};\;\vec{w},b).
+\]
+This is the estimated probability that the label equals 1 given the input
+$\vec{x}$ and parameters $(\vec{w},b)$. The complementary probability is
+$P(y=0\mid\vec{x})=1-f_{\vec{w},b}(\vec{x})$.
+
+\begin{example}[Tumour classification]
+Let $w=2$, $b=-5$, $x=3$ cm (tumour size). Then
+\[z=2\cdot 3-5=1,\qquad g(1)=\frac{1}{1+e^{-1}}\approx 0.731.\]
+The model reports a $73.1\%$ probability that the tumour is malignant.
+\end{example}
+
+\subsection{From Probability to Class Prediction}
+
+To obtain a hard class label we introduce a \textbf{decision threshold}
+$\tau$ (typically $\tau=0.5$):
+\[
+\hat{y}=\begin{cases}1&\text{if }f_{\vec{w},b}(\vec{x})\ge\tau,\\
+0&\text{otherwise.}\end{cases}
+\]
+Because $g(z)\ge 0.5\iff z\ge 0$, the prediction rule is equivalent to:
+\[\hat{y}=1\iff\vec{w}\cdot\vec{x}+b\ge 0.\]
+
+\subsection{Decision Boundaries}
+
+The \textbf{decision boundary} is the set of inputs $\vec{x}$ for which
+$\vec{w}\cdot\vec{x}+b=0$ (i.e.\ where $f=0.5$, the model is exactly neutral).
+
+\paragraph{Linear boundaries.}
+With two features $x_1,x_2$ and parameters $w_1,w_2,b$, the boundary is the
+straight line $w_1 x_1+w_2 x_2+b=0$.
+\textit{Example:} $w_1=1$, $w_2=1$, $b=-3$ gives boundary $x_1+x_2=3$.
+Points with $x_1+x_2>3$ are classified as $y=1$.
+
+\paragraph{Non-linear boundaries.}
+By augmenting the feature vector with polynomial terms, the boundary in the
+\emph{original} feature space can be non-linear. With features
+$(x_1^2,x_2^2)$ and $w_1=w_2=1$, $b=-1$, the boundary becomes
+$x_1^2+x_2^2=1$, a unit circle.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=7.5cm, height=7.5cm,
+  xlabel={$x_1$}, ylabel={$x_2$},
+  xmin=-2.5, xmax=2.5, ymin=-2.5, ymax=2.5,
+  xtick={-2,-1,0,1,2}, ytick={-2,-1,0,1,2},
+  grid=both, grid style={gray!15, thin},
+  tick label style={font=\small}, label style={font=\small},
+  axis lines=center]
+\addplot[pBlue, thick, smooth, domain=0:360, samples=200]
+  ({cos(x)},{sin(x)});
+\addplot[only marks, mark=*, color=pBlue, mark size=2pt]
+  coordinates{(0.3,0.3)(0.4,-0.3)(-0.3,0.4)(-0.2,-0.2)(0.0,0.5)};
+\addplot[only marks, mark=square*, color=pRed, mark size=2pt]
+  coordinates{(1.5,1.2)(1.3,-1.4)(-1.6,0.8)(-1.2,-1.5)(1.8,-0.5)
+              (0.5,1.8)(-0.4,2.0)(2.0,0.4)};
+\node[pBlue,  font=\small] at (axis cs:0,0)    {$\hat{y}=0$};
+\node[pRed,   font=\small] at (axis cs:1.9,1.9) {$\hat{y}=1$};
+\end{axis}
+\end{tikzpicture}
+\caption{Circular decision boundary arising from polynomial features
+$(x_1^2,x_2^2)$ with $w_1=w_2=1$, $b=-1$.}
+\label{fig:circle-boundary}
+\end{figure}
+
+%----------------------------------------------------------
+\section{Cost Function for Logistic Regression}
+\label{sec:logcost}
+
+\subsection{Why Squared Error Fails}
+
+Reusing the MSE cost from linear regression with the non-linear sigmoid output
+produces a \emph{non-convex} cost surface with multiple local minima and flat
+plateaus. Gradient descent may converge to a sub-optimal solution. We need a
+cost function that (a) preserves convexity and (b) strongly penalises confident
+wrong predictions.
+
+\subsection{Loss vs.\ Cost: A Key Distinction}
+
+\begin{definition}[Loss and Cost]
+The \textbf{loss} $L\bigl(f,y\bigr)$ measures the penalty on a \emph{single}
+training example: the cost of predicting $f$ when the true label is $y$.
+The \textbf{cost} $J$ is the \emph{average loss} over all $m$ training examples:
+\[J(\vec{w},b)=\frac{1}{m}\sum_{i=1}^m L\!\bigl(f_{\vec{w},b}(\vec{x}^{(i)}),y^{(i)}\bigr).\]
+\end{definition}
+
+\subsection{The Logistic (Cross-Entropy) Loss}
+
+We define the loss piecewise:
+\begin{align}
+\text{If }y=1:&\quad L=-\log\!\bigl(f\bigr),\label{eq:loss-y1}\\
+\text{If }y=0:&\quad L=-\log\!\bigl(1-f\bigr).\label{eq:loss-y0}
+\end{align}
+
+\paragraph{Interpretation for $y=1$ (Eq.~\ref{eq:loss-y1}).}
+\begin{itemize}
+\item When $f\approx 1$ (correctly confident): $-\log(1)=0$ — no penalty.
+\item When $f\to 0$ (confidently wrong): $-\log(f)\to+\infty$ — catastrophic penalty.
+\end{itemize}
+
+\paragraph{Interpretation for $y=0$ (Eq.~\ref{eq:loss-y0}).}
+\begin{itemize}
+\item When $f\approx 0$ (correct): $-\log(1)=0$ — no penalty.
+\item When $f\to 1$ (confidently wrong): $-\log(0)\to+\infty$ — catastrophic penalty.
+\end{itemize}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=11cm, height=6.5cm,
+  xlabel={Prediction $f$}, ylabel={Loss $L$},
+  xmin=0.01, xmax=0.99, ymin=0, ymax=5,
+  xtick={0,0.2,0.4,0.6,0.8,1},
+  ytick={0,1,2,3,4,5},
+  grid=both, grid style={gray!15, thin},
+  tick label style={font=\small}, label style={font=\small},
+  axis lines=left,
+  legend style={at={(0.5,0.97)}, anchor=north, font=\small, fill=white},
+  every axis plot/.append style={line width=1.4pt}]
+\addplot[pBlue, smooth, samples=200, domain=0.005:0.995]{-ln(x)};
+\addlegendentry{$L=-\log(f)$\quad ($y=1$)}
+\addplot[pRed, dashed, smooth, samples=200, domain=0.005:0.995]{-ln(1-x)};
+\addlegendentry{$L=-\log(1-f)$\quad ($y=0$)}
+\end{axis}
+\end{tikzpicture}
+\caption{Logistic loss functions for $y=1$ (solid, blue) and $y=0$ (dashed,
+red). Both approach $+\infty$ when the prediction is maximally wrong.}
+\label{fig:loss-curves}
+\end{figure}
+
+\subsection{The Unified Loss Formula}
+
+The piecewise definition collapses elegantly into a single expression:
+\begin{equation}
+\boxed{L\bigl(f,y\bigr)
+=-y\,\log(f)-(1-y)\,\log(1-f).}
+\label{eq:unified-loss}
+\end{equation}
+
+\paragraph{Verification.}
+\begin{itemize}
+\item If $y=1$: $(1-y)=0$ annihilates the second term $\Rightarrow L=-\log(f)$.\checkmark
+\item If $y=0$: $y=0$ annihilates the first term $\Rightarrow L=-\log(1-f)$.\checkmark
+\end{itemize}
+
+\subsection{The Full Logistic Regression Cost Function}
+
+Averaging the unified loss over all $m$ training examples:
+\begin{equation}
+\boxed{J(\vec{w},b)=-\frac{1}{m}\sum_{i=1}^m\Bigl[
+y^{(i)}\log\!\bigl(f_{\vec{w},b}(\vec{x}^{(i)})\bigr)
++(1-y^{(i)})\log\!\bigl(1-f_{\vec{w},b}(\vec{x}^{(i)})\bigr)\Bigr].}
+\label{eq:logistic-cost}
+\end{equation}
+
+This is the \textbf{cross-entropy loss} or \textbf{log-loss}. It has two
+complementary justifications:
+\begin{enumerate}
+\item \textbf{Statistical (MLE).} Eq.~\eqref{eq:logistic-cost} is exactly the
+  negative log-likelihood of the training data under a Bernoulli model with
+  success probability $f^{(i)}$. Minimising cross-entropy is equivalent to
+  Maximum Likelihood Estimation — a principled statistical objective.
+\item \textbf{Convexity.} Because the sigmoid is log-concave, this cost
+  function is \emph{convex} in $(\vec{w},b)$. The cost surface has a
+  \emph{single global minimum} and no local minima, so gradient descent is
+  guaranteed to converge to the optimal solution regardless of initialisation.
+\end{enumerate}
+
+%----------------------------------------------------------
+\section{Gradient Descent for Logistic Regression}
+\label{sec:loggd}
+
+\subsection{The Training Objective}
+
+We seek $(\vec{w}^*,b^*)=\argmin_{\vec{w},b}\;J(\vec{w},b)$.
+Once found, the trained model estimates
+$P(y=1\mid\vec{x};\;\vec{w}^*,b^*)$ for any new input $\vec{x}$.
+
+\subsection{The Update Rules}
+
+Gradient descent applies simultaneously:
+\begin{align}
+w_j&\leftarrow w_j-\alpha\,\pd{J}{w_j},\quad j=1,\ldots,n,\\[4pt]
+b  &\leftarrow b-\alpha\,\pd{J}{b}.
+\end{align}
+
+Differentiating Eq.~\eqref{eq:logistic-cost} (using the chain rule and the
+identity $g'(z)=g(z)(1-g(z))$):
+\begin{align}
+\pd{J}{w_j}&=\frac{1}{m}\sum_{i=1}^m
+\bigl(f_{\vec{w},b}(\vec{x}^{(i)})-y^{(i)}\bigr)\,x_j^{(i)},\label{eq:log-dJdw}\\[4pt]
+\pd{J}{b}  &=\frac{1}{m}\sum_{i=1}^m
+\bigl(f_{\vec{w},b}(\vec{x}^{(i)})-y^{(i)}\bigr).\label{eq:log-dJdb}
+\end{align}
+
+\begin{remark}
+The gradient expressions~\eqref{eq:log-dJdw}--\eqref{eq:log-dJdb} are
+\emph{structurally identical} to those of linear regression. The critical
+difference lies in the definition of $f$: in linear regression
+$f=\vec{w}\cdot\vec{x}+b$; in logistic regression
+$f=g(\vec{w}\cdot\vec{x}+b)$. Same form, different meaning.
+\end{remark}
+
+\paragraph{Derivation sketch for $\partial J/\partial w_j$.}
+Let $f^{(i)}=g(z^{(i)})$, $z^{(i)}=\vec{w}\cdot\vec{x}^{(i)}+b$.
+The single-example loss is
+$\ell^{(i)}=-y^{(i)}\log f^{(i)}-(1-y^{(i)})\log(1-f^{(i)})$.
+Using $\partial f^{(i)}/\partial w_j=f^{(i)}(1-f^{(i)})x_j^{(i)}$:
+\[
+\frac{\partial\ell^{(i)}}{\partial w_j}
+=\Bigl(-\frac{y^{(i)}}{f^{(i)}}+\frac{1-y^{(i)}}{1-f^{(i)}}\Bigr)
+f^{(i)}(1-f^{(i)})x_j^{(i)}
+=\bigl(f^{(i)}-y^{(i)}\bigr)x_j^{(i)}.
+\]
+Averaging over all $m$ examples gives Eq.~\eqref{eq:log-dJdw}.\quad$\square$
+
+\subsection{Practical Considerations}
+
+\paragraph{Choosing the learning rate $\alpha$.}
+Monitor the learning curve (cost vs.\ iteration). A well-chosen $\alpha$
+produces a monotonically decreasing, eventually flat curve.
+
+\paragraph{Feature scaling.}
+When features have vastly different magnitudes, the cost surface becomes an
+elongated ellipse. Standardising features (zero mean, unit variance) transforms
+the contours to circles, allowing much faster convergence.
+
+\paragraph{Vectorisation.}
+For large datasets, express the gradient update as matrix--vector operations
+(NumPy) to exploit parallelism.
+
+\paragraph{Convergence criterion.}
+Halt when the relative change in $J$ between successive iterations falls below
+a tolerance $\varepsilon$:
+\[\frac{|J^{(t)}-J^{(t-1)}|}{|J^{(t-1)}|+\varepsilon_0}<\varepsilon.\]
+
+%----------------------------------------------------------
+\section{The Problem of Overfitting}
+\label{sec:overfit}
+
+\subsection{The Bias--Variance Trade-off}
+
+Every supervised learning algorithm navigates a fundamental tension: a model
+that is too simple cannot capture the true structure (\textbf{underfitting},
+or \emph{high bias}), while a model that is too complex memorises the training
+data and fails to generalise (\textbf{overfitting}, or \emph{high variance}).
+
+\paragraph{Underfitting (High Bias).}
+An underfitting model has a strong preconception about the form of the
+relationship. Fitting a straight line to clearly curved data forces the model
+to ignore obvious patterns. Such a model performs poorly even on the training
+set.
+
+\paragraph{Overfitting (High Variance).}
+An overfitting model is excessively complex — perhaps a degree-15 polynomial
+fitted to 20 data points. It interpolates the training data perfectly (near-zero
+training error) but its oscillatory curve is driven by noise rather than the
+true signal. Small changes in the training set produce drastically different
+models.
+
+\paragraph{Good generalisation.}
+The ideal model captures the true underlying pattern while ignoring random noise.
+It achieves low error on both training and unseen test data.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  name=ax1,
+  width=4.8cm, height=4.6cm, title={\small\textbf{Underfitting}},
+  title style={font=\small\bfseries},
+  xmin=0, xmax=4, ymin=0, ymax=4,
+  xtick=\empty, ytick=\empty, axis lines=left]
+\addplot[only marks, mark=*, mark size=1.8pt, pBlue]
+  coordinates{(0.3,0.4)(0.7,0.9)(1.1,1.5)(1.5,2.0)(2.0,2.3)
+              (2.5,2.0)(3.0,1.5)(3.5,0.8)(3.9,0.3)};
+\addplot[pRed, thick, domain=0:4]{1.2};
+\end{axis}
+\begin{axis}[
+  name=ax2, at={(ax1.east)}, xshift=1.4cm,
+  width=4.8cm, height=4.6cm, title={\small\textbf{Good generalisation}},
+  title style={font=\small\bfseries},
+  xmin=0, xmax=4, ymin=0, ymax=4,
+  xtick=\empty, ytick=\empty, axis lines=left]
+\addplot[only marks, mark=*, mark size=1.8pt, pBlue]
+  coordinates{(0.3,0.4)(0.7,0.9)(1.1,1.5)(1.5,2.0)(2.0,2.3)
+              (2.5,2.0)(3.0,1.5)(3.5,0.8)(3.9,0.3)};
+\addplot[pRed, thick, smooth, domain=0.1:3.9, samples=80]
+  {-0.57*(x-2)^2+2.3};
+\end{axis}
+\begin{axis}[
+  name=ax3, at={(ax2.east)}, xshift=1.4cm,
+  width=4.8cm, height=4.6cm, title={\small\textbf{Overfitting}},
+  title style={font=\small\bfseries},
+  xmin=0, xmax=4, ymin=-0.5, ymax=4.5,
+  xtick=\empty, ytick=\empty, axis lines=left]
+\addplot[only marks, mark=*, mark size=1.8pt, pBlue]
+  coordinates{(0.3,0.4)(0.7,0.9)(1.1,1.5)(1.5,2.0)(2.0,2.3)
+              (2.5,2.0)(3.0,1.5)(3.5,0.8)(3.9,0.3)};
+\addplot[pRed, thick, smooth, domain=0.2:3.95, samples=200]
+  {-0.57*(x-2)^2+2.3+0.62*sin(deg(5.3*x))};
+\end{axis}
+\end{tikzpicture}
+\caption{Three models fitted to the same data. \textit{Left}: underfitting (too
+simple). \textit{Centre}: good generalisation. \textit{Right}: overfitting (too
+complex, fitting the noise).}
+\label{fig:fitting}
+\end{figure}
+
+\subsection{Remedies for Overfitting}
+
+\subsubsection{Strategy 1: Collect More Training Data}
+
+The most direct remedy. With more data, any fixed-complexity model is less able
+to memorise individual points and is forced to learn the true underlying pattern.
+Unfortunately, collecting more data is not always feasible — it may be
+expensive, time-consuming, or impossible for rare events.
+
+\subsubsection{Strategy 2: Feature Selection}
+
+If the number of features $n$ is large relative to $m$, overfitting is likely.
+Reducing the feature set — keeping only the most informative features — reduces
+the model's capacity to overfit. Feature selection can be done manually
+(guided by domain knowledge) or automatically (using statistical tests, embedded
+methods, or regularisation paths).
+
+\subsubsection{Strategy 3: Regularisation}
+\label{sec:regularisation}
+
+Regularisation is generally the preferred remedy because it allows us to retain
+\emph{all} features while preventing any single parameter from dominating the
+model.
+
+\paragraph{Core idea.}
+Large weight parameters are what allow a model to oscillate wildly. By
+\emph{penalising} large weights in the cost function, the optimiser is forced
+to keep them small, producing a smoother, more parsimonious model.
+
+\paragraph{Regularised cost function ($L_2$ / Ridge).}
+\begin{equation}
+J_{\text{reg}}(\vec{w},b)
+=J(\vec{w},b)+\frac{\lambda}{2m}\sum_{j=1}^n w_j^2,
+\label{eq:reg-cost}
+\end{equation}
+where $\lambda\ge 0$ is the \textbf{regularisation parameter}. Note that $b$
+is conventionally \emph{not} regularised.
+
+\paragraph{The role of $\lambda$.}
+\begin{itemize}
+\item $\lambda=0$: no regularisation; the model may overfit.
+\item $\lambda\to\infty$: all weights forced to zero; model underfits
+  (predicts constant $f=\sigma(b)$).
+\item $\lambda$ ``just right'': balance between fitting data and model
+  simplicity, achieving good generalisation.
+\end{itemize}
+
+\subsection{Regularised Linear Regression}
+
+\paragraph{Gradient descent updates.}
+\begin{align}
+w_j&\leftarrow w_j-\alpha\Bigl[\frac{1}{m}\sum_{i=1}^m
+  \bigl(f_{\vec{w},b}(\vec{x}^{(i)})-y^{(i)}\bigr)x_j^{(i)}
+  +\frac{\lambda}{m}w_j\Bigr],\label{eq:reg-lin-w}\\
+b  &\leftarrow b-\frac{\alpha}{m}\sum_{i=1}^m
+  \bigl(f_{\vec{w},b}(\vec{x}^{(i)})-y^{(i)}\bigr).\label{eq:reg-lin-b}
+\end{align}
+
+\paragraph{Weight decay interpretation.}
+Rearranging \eqref{eq:reg-lin-w}:
+\[
+w_j\leftarrow\underbrace{\Bigl(1-\frac{\alpha\lambda}{m}\Bigr)}_{\text{weight decay factor}}w_j
+-\frac{\alpha}{m}\sum_{i=1}^m\bigl(f^{(i)}-y^{(i)}\bigr)x_j^{(i)}.
+\]
+Since $\alpha\lambda/m$ is a small positive number (e.g.\ $0.0002$), the weight
+decay factor is slightly less than 1. At every step, each weight is
+\emph{gently shrunk} before the gradient update, creating a constant restoring
+force toward zero.
+
+\subsection{Regularised Logistic Regression}
+
+The same approach applies directly:
+\begin{equation}
+J(\vec{w},b)=-\frac{1}{m}\sum_{i=1}^m\!\Bigl[
+y^{(i)}\log f^{(i)}+(1-y^{(i)})\log(1-f^{(i)})\Bigr]
++\frac{\lambda}{2m}\sum_{j=1}^n w_j^2,
+\end{equation}
+with gradient descent updates identical in form to
+\eqref{eq:reg-lin-w}--\eqref{eq:reg-lin-b} but with the sigmoid $f$.
+
+\paragraph{Summary table.}
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+\textbf{Situation} & \textbf{$J_{\text{train}}$} &
+\textbf{$J_{\text{test}}$} & \textbf{Remedy}\\
+\midrule
+Underfitting (High Bias)     & High  & High  & More features; reduce $\lambda$\\
+Good generalisation          & Low   & Low   & ---\\
+Overfitting (High Variance)  & Low   & High  & More data; reduce features; increase $\lambda$\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%----------------------------------------------------------
+\section*{Chapter Summary}
+\addcontentsline{toc}{section}{Chapter Summary}
+
+\begin{itemize}
+\item \textbf{Logistic regression} uses the sigmoid function to map a linear
+  combination of features onto $(0,1)$, yielding a probability estimate
+  $P(y=1\mid\vec{x})$.
+\item The decision boundary $\vec{w}\cdot\vec{x}+b=0$ is linear; polynomial
+  features extend it to non-linear shapes (circles, ellipses, etc.).
+\item The \textbf{cross-entropy cost} is derived from MLE and is convex,
+  guaranteeing a unique global minimum. Squared error would produce a
+  non-convex cost with local minima.
+\item The gradient formulas for logistic regression look identical to those of
+  linear regression, but $f$ is the sigmoid in the logistic case.
+\item \textbf{Overfitting} occurs when the model is too complex relative to the
+  training data. The three main remedies are more data, feature selection, and
+  $L_2$ \textbf{regularisation} (controlled by $\lambda$).
+\item Regularisation adds a weight-penalty term to the cost, shrinking weights
+  at every gradient step (``weight decay''), smoothing the decision boundary.
+\end{itemize}

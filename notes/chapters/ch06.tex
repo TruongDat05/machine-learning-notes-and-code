@@ -1,0 +1,416 @@
+% =========================================================
+%  Chapter 6: Advice for Applying Machine Learning
+% =========================================================
+\chapter{Advice for Applying Machine Learning}
+
+\textit{This chapter provides a systematic framework for diagnosing and
+improving machine learning systems. We cover practical debugging strategies,
+the bias--variance trade-off, structured development workflows, data-centric
+AI, and methods for handling skewed datasets.}
+
+%----------------------------------------------------------
+\section{Evaluating Model Performance}
+
+\subsection{Unacceptable Prediction Errors: What Next?}
+
+Suppose regularised linear regression produces unacceptably large errors.
+You face a critical decision: \emph{what should you try next?} Choosing
+wrongly can waste months of effort. Six commonly considered paths exist:
+
+\begin{center}
+\begin{tabular}{lp{9cm}}
+\toprule
+\textbf{Strategy} & \textbf{Description}\\
+\midrule
+Data collection      & Gather more training examples.\\
+Feature reduction    & Use a smaller feature set.\\
+Feature expansion    & Introduce additional informative features.\\
+Polynomial complexity& Add polynomial terms for non-linear patterns.\\
+Decrease $\lambda$   & Allow closer fitting of training data.\\
+Increase $\lambda$   & Reduce overfitting by stronger regularisation.\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Without guidance, practitioners often choose randomly. \textbf{Machine
+learning diagnostics} replace guessing with evidence-based reasoning.
+
+\begin{definition}[Diagnostic]
+A \textbf{diagnostic} is a formal test that provides insight into what is
+or is not working within a learning algorithm, guiding targeted improvement.
+\end{definition}
+
+\subsection{The Train / Test Split}
+
+The dataset is divided into two non-overlapping subsets:
+\begin{enumerate}
+\item \textbf{Training set} ($\approx70$--$80\%$): used to fit parameters $(\vec{w},b)$.
+\item \textbf{Test set} ($\approx20$--$30\%$): used to evaluate on unseen data.
+\end{enumerate}
+
+\paragraph{Procedure for linear regression.}
+\begin{enumerate}
+\item Minimise the regularised cost on the training set.
+\item Compute train and test errors \emph{without} regularisation:
+\begin{align}
+J_{\text{test}}&=\frac{1}{2m_{\text{test}}}\sum_{i=1}^{m_{\text{test}}}
+\bigl(f_{\vec{w},b}(\vec{x}_{\text{test}}^{(i)})-y_{\text{test}}^{(i)}\bigr)^2,\\
+J_{\text{train}}&=\frac{1}{2m_{\text{train}}}\sum_{i=1}^{m_{\text{train}}}
+\bigl(f_{\vec{w},b}(\vec{x}_{\text{train}}^{(i)})-y_{\text{train}}^{(i)}\bigr)^2.
+\end{align}
+\end{enumerate}
+
+\begin{remark}[Overfitting diagnostic rule]
+If $J_{\text{train}}$ is low but $J_{\text{test}}$ is high, the model has
+\textbf{failed to generalise} (overfitting).
+\end{remark}
+
+\subsection{The Three-Way Data Split for Model Selection}
+
+A two-way split has a flaw: if we use the test set to select the best model
+(e.g.\ the best polynomial degree $d$), $J_{\text{test}}$ is no longer an
+unbiased estimate — it has been ``used up'' in the selection decision.
+
+\textbf{Solution}: split data into three disjoint subsets.
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Subset} & \textbf{Size} & \textbf{Purpose}\\
+\midrule
+Training set         & 60\% & Fit parameters $\vec{w}$, $b$\\
+Cross-validation (CV) & 20\% & Select model / tune hyperparameters\\
+Test set             & 20\% & Unbiased final performance estimate\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Correct procedure.}
+\begin{enumerate}
+\item Train each candidate model on the training set.
+\item Evaluate all models on the CV set; choose the one with lowest $J_{\text{cv}}$.
+\item Report $J_{\text{test}}$ of the \emph{single} chosen model.
+\end{enumerate}
+
+%----------------------------------------------------------
+\section{Bias and Variance}
+
+\subsection{Defining Bias and Variance}
+
+\begin{definition}[High Bias]
+A model has \textbf{high bias} when it is too simple to capture the underlying
+patterns. Both $J_{\text{train}}$ and $J_{\text{cv}}$ are high, and close
+to each other.
+\end{definition}
+
+\begin{definition}[High Variance]
+A model has \textbf{high variance} when it fits training noise and fails to
+generalise. $J_{\text{train}}$ is very low but
+$J_{\text{cv}}\gg J_{\text{train}}$.
+\end{definition}
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+\textbf{Condition} & $J_{\text{train}}$ & $J_{\text{cv}}$ & \textbf{Relationship}\\
+\midrule
+High Bias     & High & High & $J_{\text{cv}}\approx J_{\text{train}}$\\
+High Variance & Low  & High & $J_{\text{cv}}\gg J_{\text{train}}$\\
+Just Right    & Low  & Low  & $J_{\text{cv}}\approx J_{\text{train}}$\\
+Both High     & High & Much higher & Large gap, $J_{\text{train}}$ also high\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=10cm, height=6.5cm,
+  xlabel={Polynomial degree $d$}, ylabel={Error},
+  xmin=0.5, xmax=7.5, ymin=0, ymax=1.12,
+  xtick={1,2,3,4,5,6,7}, ytick=\empty,
+  legend pos=north east, legend style={font=\small, fill=white},
+  axis lines=left,
+  every axis plot/.append style={line width=1.4pt}]
+\addplot[pBlue, smooth] coordinates
+  {(1,.95)(2,.6)(3,.35)(4,.18)(5,.09)(6,.04)(7,.02)};
+\addlegendentry{$J_{\text{train}}$}
+\addplot[pOrange, dashed, smooth] coordinates
+  {(1,1.0)(2,.55)(3,.3)(4,.36)(5,.56)(6,.79)(7,1.02)};
+\addlegendentry{$J_{\text{cv}}$}
+\draw[pGray, thin, dashed] (axis cs:3,0)--(axis cs:3,1.08);
+\node[font=\small, pGray] at (axis cs:3,1.12) {Optimal $d$};
+\node[pRed, font=\small] at (axis cs:1.4,.88) {High Bias};
+\node[pRed, font=\small] at (axis cs:6.1,.90) {High Variance};
+\end{axis}
+\end{tikzpicture}
+\caption{$J_{\text{train}}$ decreases monotonically with model complexity.
+$J_{\text{cv}}$ follows a U-shaped curve with minimum at the optimal degree.}
+\label{fig:complexity}
+\end{figure}
+
+\subsection{Regularisation and the Bias--Variance Trade-off}
+
+\begin{itemize}
+\item \textbf{Large $\lambda$}: forces $\vec{w}\approx\mathbf{0}$, model near
+  constant $\Rightarrow$ \textbf{High Bias}.
+\item \textbf{Small $\lambda$}: no constraint $\Rightarrow$ \textbf{High Variance}.
+\item \textbf{Optimal $\lambda$}: balance between fitting data and simplicity.
+\end{itemize}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=10cm, height=6.5cm,
+  xlabel={$\lambda$}, ylabel={Error},
+  xmin=-0.1, xmax=10.5, ymin=0, ymax=1.12,
+  xtick={0,2,4,6,8,10}, ytick=\empty,
+  legend pos=north east, legend style={font=\small, fill=white},
+  axis lines=left,
+  every axis plot/.append style={line width=1.4pt}]
+\addplot[pBlue, smooth] coordinates
+  {(0,.02)(1,.08)(2,.18)(3,.3)(5,.52)(7,.72)(10,.95)};
+\addlegendentry{$J_{\text{train}}$}
+\addplot[pOrange, dashed, smooth] coordinates
+  {(0,1.0)(1,.55)(2,.30)(3,.29)(4,.33)(5,.46)(7,.66)(10,.96)};
+\addlegendentry{$J_{\text{cv}}$}
+\draw[pGray, thin, dashed] (axis cs:3,0)--(axis cs:3,1.08);
+\node[font=\small, pGray] at (axis cs:3,1.12) {Optimal $\lambda$};
+\node[pRed, font=\small] at (axis cs:0.7,.92) {High Variance};
+\node[pRed, font=\small] at (axis cs:8.5,.78) {High Bias};
+\end{axis}
+\end{tikzpicture}
+\caption{As $\lambda$ increases, $J_{\text{train}}$ rises and $J_{\text{cv}}$
+forms a U-shape. The valley identifies the optimal regularisation strength.}
+\label{fig:lambda}
+\end{figure}
+
+\subsection{Baseline Performance and the Gap Framework}
+
+Comparing $J_{\text{train}}$ in isolation can be misleading — many tasks have
+an irreducible noise floor.
+
+\begin{definition}[Bias gap and variance gap]
+\[
+\text{Bias Gap}=J_{\text{train}}-\text{Baseline},\qquad
+\text{Variance Gap}=J_{\text{cv}}-J_{\text{train}}.
+\]
+Large bias gap $\Rightarrow$ High Bias. Large variance gap $\Rightarrow$ High
+Variance.
+\end{definition}
+
+\begin{example}[Speech recognition]
+$J_{\text{train}}=10.8\%$, $J_{\text{cv}}=14.8\%$, human baseline $=10.6\%$.
+\begin{itemize}
+\item Bias Gap $=0.2\%$ (small).
+\item Variance Gap $=4.0\%$ (large).
+\item Conclusion: \textbf{High Variance} problem.
+\end{itemize}
+\end{example}
+
+\subsection{Debugging Strategies}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Diagnosis} & \textbf{Recommended action}\\
+\midrule
+High Variance & Get more training examples\\
+              & Reduce feature set\\
+              & Increase $\lambda$\\
+\midrule
+High Bias     & Add more / better features\\
+              & Add polynomial features\\
+              & Decrease $\lambda$\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Neural Networks and Bias--Variance}
+
+A sufficiently large, well-regularised neural network can be made effectively
+low-bias. The iterative workflow:
+\begin{enumerate}
+\item Check $J_{\text{train}}$ vs.\ baseline. If high $\Rightarrow$ High Bias:
+  \textbf{use a bigger network} (more layers/units).
+\item Check $J_{\text{cv}}$. If $J_{\text{cv}}\gg J_{\text{train}}$
+  $\Rightarrow$ High Variance: \textbf{get more data}.
+\item Repeat until both errors are acceptably low.
+\end{enumerate}
+
+\begin{lstlisting}[caption={$L_2$ regularisation in Keras}]
+from tensorflow.keras.regularizers import L2
+model = Sequential([
+    Dense(units=25, activation='relu', kernel_regularizer=L2(0.01)),
+    Dense(units=15, activation='relu', kernel_regularizer=L2(0.01)),
+    Dense(units=1,  activation='sigmoid', kernel_regularizer=L2(0.01)),
+])
+\end{lstlisting}
+
+%----------------------------------------------------------
+\section{Machine Learning Development Process}
+
+\subsection{The Iterative Development Loop}
+
+Building a production ML model is rarely linear. It follows a continuous cycle:
+\begin{enumerate}
+\item \textbf{Choose architecture}: model family, features, hyperparameters.
+\item \textbf{Train model}: implement and train.
+\item \textbf{Run diagnostics}: bias--variance analysis and error analysis.
+  Use findings to loop back.
+\end{enumerate}
+
+\subsection{Data Augmentation and Synthesis}
+
+\begin{definition}[Data augmentation]
+\textbf{Data augmentation} creates new training examples $(x',y)$ by applying
+structure-preserving transformations to existing examples $(x,y)$.
+\end{definition}
+
+\begin{itemize}
+\item \textbf{Computer vision}: rotation, cropping, mirroring, contrast
+  changes, grid-based warping.
+\item \textbf{Speech}: adding background noise, applying filters to simulate
+  poor phone connections.
+\end{itemize}
+
+\textbf{Key rule}: Augmentation distortions must be \emph{representative of
+real test-set noise}. Purely random pixel noise provides little benefit.
+
+\begin{definition}[Data synthesis]
+\textbf{Data synthesis} generates entirely new training examples from scratch
+(e.g.\ rendering text in diverse fonts for OCR training).
+\end{definition}
+
+\subsection{Transfer Learning}
+
+\begin{definition}[Transfer learning]
+\textbf{Transfer learning} reuses a model pre-trained on a large related task
+as the starting point for a new, data-scarce task.
+\end{definition}
+
+Standard two-step workflow:
+\begin{enumerate}
+\item \textbf{Supervised pre-training}: train a large network on a massive
+  labelled dataset (e.g.\ 1 million ImageNet images).
+\item \textbf{Fine-tuning}: replace the output layer for the target task. Then:
+  \begin{itemize}
+  \item \textbf{Frozen layers (Option 1)}: train only the new output layer.
+    Best for very small new datasets ($\approx50$--$100$ examples).
+  \item \textbf{Full fine-tuning (Option 2)}: retrain all layers using
+    pre-trained weights as initialisation. Best for moderate-to-large
+    new datasets.
+  \end{itemize}
+\end{enumerate}
+
+Transfer learning works because neural networks learn a hierarchy of features:
+early layers detect universal low-level patterns (edges, corners) that are
+task-agnostic.
+
+\subsection{Ethics and Fairness}
+
+As ML systems impact billions of users, \textbf{fairness}, \textbf{bias
+detection}, and \textbf{ethical development} are mandatory parts of the
+lifecycle. A framework:
+\begin{enumerate}[label=\Roman*.]
+\item \textbf{Team diversity}: assemble diverse teams.
+\item \textbf{Literature review}: consult industry guidelines and standards.
+\item \textbf{Pre-deployment auditing}: measure performance across demographic
+  subgroups.
+\item \textbf{Mitigation and monitoring}: prepare rollback strategy; monitor
+  for real-world harms post-deployment.
+\end{enumerate}
+
+%----------------------------------------------------------
+\section{Skewed Datasets}
+
+\subsection{The Problem with Accuracy on Skewed Data}
+
+\begin{definition}[Skewed dataset]
+A dataset is \textbf{skewed} when the ratio of positive to negative examples
+is far from 50/50 (e.g.\ $99\%$ negative, $1\%$ positive).
+\end{definition}
+
+A classifier that \emph{always} predicts negative achieves $99\%$ accuracy
+on such a dataset while providing zero useful predictions. This motivates
+\textbf{Precision} and \textbf{Recall}.
+
+\subsection{Confusion Matrix, Precision, and Recall}
+
+\begin{center}
+\begin{tabular}{llcc}
+\toprule
+& & \multicolumn{2}{c}{\textbf{Actual Class}}\\
+\cmidrule{3-4}
+& & Positive ($y=1$) & Negative ($y=0$)\\
+\midrule
+\multirow{2}{*}{\textbf{Predicted}} & Positive ($\hat{y}=1$) &
+True Positive (TP) & False Positive (FP)\\
+& Negative ($\hat{y}=0$) & False Negative (FN) & True Negative (TN)\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{align}
+\text{Precision}&=\frac{TP}{TP+FP},\qquad
+\text{Recall}=\frac{TP}{TP+FN}.
+\end{align}
+
+A classifier that always predicts negative has $\text{Recall}=0$, correctly
+exposing its uselessness.
+
+\subsection{The Precision--Recall Trade-off}
+
+Adjusting the decision threshold $\tau$ navigates the trade-off:
+\begin{itemize}
+\item Higher $\tau$ ($0.7$--$0.9$): higher precision, lower recall.
+  Appropriate when false positives are costly.
+\item Lower $\tau$ ($0.3$): higher recall, lower precision.
+  Appropriate when false negatives are costly (e.g.\ missing a deadly disease).
+\end{itemize}
+
+\subsection{The F1 Score}
+
+A single composite score combining precision and recall. The \emph{harmonic
+mean} penalises extreme imbalance:
+\begin{equation}
+F_1=\frac{2PR}{P+R}.
+\label{eq:f1}
+\end{equation}
+A high $F_1$ requires \emph{both} $P$ and $R$ to be high.
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Algorithm} & $P$ & $R$ & \textbf{Arith.\ mean} & $F_1$\\
+\midrule
+Algorithm 1 & 0.50 & 0.40 & 0.450 & \textbf{0.444}\\
+Algorithm 2 & 0.70 & 0.10 & 0.400 & 0.175\\
+Algorithm 3 & 0.02 & 1.00 & 0.510 & 0.039\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Algorithm~3 achieves the highest arithmetic mean ($0.51$) but its F1 of $0.039$
+correctly reveals it as a poor classifier (predicts positive for everything).
+
+%----------------------------------------------------------
+\section*{Chapter Summary}
+\addcontentsline{toc}{section}{Chapter Summary}
+
+\begin{itemize}
+\item \textbf{Diagnostics} replace guessing with evidence. The three-way
+  split (train/CV/test) enables unbiased model selection.
+\item \textbf{Bias} (underfitting) and \textbf{variance} (overfitting) are the
+  two primary failure modes, diagnosed by comparing $J_{\text{train}}$ vs.\
+  $J_{\text{cv}}$ against a baseline.
+\item The iterative development loop (architecture $\to$ train $\to$ diagnose)
+  is the standard workflow. Large, well-regularised networks tend to be
+  low-bias; more data cures high variance.
+\item Data augmentation, synthesis, and transfer learning address data scarcity.
+\item \textbf{Skewed datasets} require Precision, Recall, and $F_1$ score
+  rather than raw accuracy.
+\item Ethics and fairness must be embedded throughout the development lifecycle.
+\end{itemize}

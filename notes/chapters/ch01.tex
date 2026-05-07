@@ -1,0 +1,625 @@
+% =========================================================
+%  Chapter 1: Introduction to Machine Learning
+% =========================================================
+\chapter{Introduction to Machine Learning}
+
+This chapter introduces the foundations of machine learning. We begin with a
+high-level overview that motivates why machine learning matters and where it
+appears in modern technology. We then distinguish supervised from unsupervised
+learning, the two largest families of learning algorithms. After that, we focus
+on the simplest yet most foundational supervised learning algorithm ---
+\emph{linear regression with one variable} --- and study its model, its cost
+function, and its visualisation. Finally, we examine \emph{gradient descent},
+the optimisation algorithm used to train the model from data.
+
+%----------------------------------------------------------
+\section{Overview of Machine Learning}
+
+\subsection{Why Machine Learning Matters}
+
+Machine learning (ML) is a foundational technology behind countless applications
+that shape modern life: web search engines, email spam filtering, speech
+recognition, medical diagnosis, recommendation systems, autonomous driving, and
+many more. Its strength lies in solving problems that are difficult or impossible
+to express with explicit rules, by instead \emph{learning patterns directly from
+data}.
+
+Machine learning is widely considered a sub-field of artificial intelligence
+(AI). It is sometimes confused with the more ambitious goal of
+\emph{Artificial General Intelligence} (AGI), which refers to systems with
+broad, human-level cognitive abilities. AGI remains largely hypothetical and is
+often overhyped in popular media. Practical ML, in contrast, is a mature
+engineering discipline with concrete tools and well-understood algorithms.
+
+\subsection{What Is Machine Learning?}
+
+The basic idea of machine learning is captured in a simple sentence:
+\emph{learn to perform a task from data}. A more technical phrasing is that an
+ML system \emph{recognises and extracts patterns} from data, and then uses those
+patterns to make predictions, decisions, or descriptions about new, unseen
+inputs.
+
+A classical definition was given by Tom Mitchell (1997):
+
+\begin{quote}
+\itshape
+A computer program is said to learn from experience $E$ with respect to some
+class of tasks $T$ and performance measure $P$, if its performance on tasks in
+$T$, as measured by $P$, improves with experience $E$.
+\end{quote}
+
+This definition highlights three key ingredients: \textbf{experience} (data the
+system learns from), \textbf{tasks} (what the system must do), and
+\textbf{performance measure} (how we evaluate success).
+
+\subsection{Major Families of ML Algorithms}
+
+Machine learning algorithms are commonly grouped into the following families:
+
+\begin{itemize}
+\item \textbf{Supervised learning.} The most widely used family in real-world
+  applications. Each training example is a pair: an input $x$ and a
+  corresponding correct output $y$. The algorithm learns a mapping
+  $f\colon x \to y$.
+\item \textbf{Unsupervised learning.} The data consists only of inputs $x$,
+  with no labels. The goal is to discover hidden structure --- for example,
+  clusters, low-dimensional patterns, or anomalies.
+\item \textbf{Recommender systems.} A specialised family that predicts a
+  user's preferences for items, used by streaming services, e-commerce
+  platforms, and social media.
+\item \textbf{Reinforcement learning.} An agent learns by interacting with an
+  environment, receiving \emph{rewards} or \emph{penalties}, and gradually
+  improving its behaviour to maximise cumulative reward.
+\end{itemize}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  node distance=1.4cm and 2.6cm,
+  box/.style={draw, rounded corners=4pt, minimum width=3.4cm,
+              minimum height=0.9cm, font=\small, align=center,
+              line width=0.7pt}]
+\node[box, minimum width=4.0cm, line width=1pt, fill=gray!8]
+  (ml) {\textbf{Machine Learning}};
+\node[box, below left=1.5cm and 2.0cm of ml]  (sup)   {Supervised\\Learning};
+\node[box, below=1.5cm of ml]                 (unsup) {Unsupervised\\Learning};
+\node[box, below right=1.5cm and 2.0cm of ml] (rl)    {Reinforcement\\Learning};
+\draw[-{Stealth[length=2.5mm]}] (ml.south west) -- (sup.north);
+\draw[-{Stealth[length=2.5mm]}] (ml.south)      -- (unsup.north);
+\draw[-{Stealth[length=2.5mm]}] (ml.south east) -- (rl.north);
+\end{tikzpicture}
+\caption{Three major families of machine learning algorithms.
+Recommender systems are a specialised sub-area of supervised and unsupervised
+learning.}
+\label{fig:ml-families}
+\end{figure}
+
+%----------------------------------------------------------
+\section{Supervised vs.\ Unsupervised Machine Learning}
+
+\subsection{Supervised Learning}
+
+In supervised learning, every training example has the form $(x,\,y)$, where
+$x$ is the \emph{input} (also called a \emph{feature} or \emph{feature vector})
+and $y$ is the correct \emph{output} (also called the \emph{label} or
+\emph{target}). The objective is to learn a function $f$ such that
+$f(x) \approx y$ on new, unseen inputs. The accuracy of the resulting model
+depends on the difficulty of the task, the amount and quality of the dataset,
+and the choice of algorithm.
+
+Supervised learning problems split into two broad categories depending on the
+type of the output variable.
+
+\paragraph{Classification problems.}
+The output $y$ is \emph{discrete}, i.e.\ a category label. Examples include:
+
+\begin{itemize}
+\item \textbf{Binary} (2 classes): yes/no, 0/1, true/false.
+  \emph{Example: Is this email spam?}
+\item \textbf{Multiclass} ($\ge3$ classes): classifying a fruit as
+  \emph{apple}, \emph{mandarin}, or \emph{lemon} based on width and height.
+\item \textbf{Multilabel}: an example may belong to several classes at once.
+  \emph{Example: tagging a photo with both ``beach'' and ``sunset.''}
+\end{itemize}
+
+Common practical classification tasks include:
+\begin{enumerate}
+\item Detecting whether a new email is spam from its text content.
+\item Predicting whether a user will buy a product, given features such as age,
+  gender, and browsing history.
+\item Forecasting whether tomorrow will be rainy, using humidity, wind speed,
+  and cloudiness.
+\item Detecting whether a credit-card transaction is fraudulent.
+\end{enumerate}
+
+\paragraph{Regression problems.}
+The output $y$ is \emph{continuous} (a real number). The model predicts a real
+value $\hat{y} = f(x)$, attempting to be as close to the true $y$ as possible.
+Examples include predicting house price from size, temperature from time of day,
+or a patient's blood pressure from lifestyle factors.
+
+Figure~\ref{fig:cls-vs-reg} contrasts the two types visually.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  name=ax1,
+  width=0.46\textwidth, height=5.5cm,
+  title={\textbf{Classification}},
+  xlabel={Feature $x_1$}, ylabel={Feature $x_2$},
+  xtick=\empty, ytick=\empty,
+  axis lines=left, enlargelimits=0.12,
+  title style={font=\small\bfseries}]
+\addplot[only marks, mark=*, mark size=2.2pt, color=pBlue]
+  coordinates{(1,1)(1.5,2.1)(2,1.5)(2.2,2.5)(1.2,2.2)(1.8,1.1)};
+\addplot[only marks, mark=square*, mark size=2pt, color=pRed]
+  coordinates{(4,4)(4.5,3.5)(5,4.5)(3.8,4.2)(4.7,3.7)(4.2,4.8)};
+\addplot[domain=0.5:6, samples=2, dashed, thick, pGray]{6-x};
+\node[pBlue,  font=\small] at (axis cs:1.2,0.5) {Class 0};
+\node[pRed,   font=\small] at (axis cs:4.8,5.0) {Class 1};
+\end{axis}
+\begin{axis}[
+  name=ax2, at={(ax1.east)}, xshift=1.6cm,
+  width=0.46\textwidth, height=5.5cm,
+  title={\textbf{Regression}},
+  xlabel={Input $x$}, ylabel={Target $y$},
+  xtick=\empty, ytick=\empty,
+  axis lines=left, enlargelimits=0.12,
+  title style={font=\small\bfseries}]
+\addplot[only marks, mark=*, mark size=2pt, color=pBlue]
+  coordinates{(1,1.2)(2,1.8)(3,2.9)(4,3.2)(5,4.1)(6,4.7)(7,5.3)(8,6.1)};
+\addplot[domain=0.5:8.5, samples=2, color=pRed, thick]{0.72*x+0.45};
+\node[pRed, font=\small] at (axis cs:5.5,2.6) {$\hat{y}=f(x)$};
+\end{axis}
+\end{tikzpicture}
+\caption{Left: classification separates discrete categories with a decision
+boundary. Right: regression fits a continuous function to the data.}
+\label{fig:cls-vs-reg}
+\end{figure}
+
+\subsection{Unsupervised Learning}
+
+In unsupervised learning, the dataset consists only of inputs
+$x^{(1)}, x^{(2)}, \dots, x^{(m)}$, with \emph{no} corresponding labels $y$.
+The algorithm must discover useful structure entirely on its own, without any
+guidance from human-provided answers.
+
+Common types of unsupervised learning include:
+
+\begin{itemize}
+\item \textbf{Clustering.} Group similar data points together.
+  \emph{Examples:} grouping news articles by topic; grouping customers by
+  purchasing behaviour; analysing DNA microarrays to find gene patterns.
+\item \textbf{Anomaly detection.} Find unusual data points that deviate from
+  normal behaviour, e.g.\ unusual credit-card transactions for fraud monitoring.
+\item \textbf{Dimensionality reduction.} Compress the data by representing it
+  with fewer numbers while preserving important structure. Useful for
+  visualisation and pre-processing.
+\end{itemize}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.6\textwidth, height=5.5cm,
+  title={\textbf{Clustering: discovering groups without labels}},
+  title style={font=\small\bfseries},
+  xlabel={Feature 1}, ylabel={Feature 2},
+  xtick=\empty, ytick=\empty,
+  axis lines=left, enlargelimits=0.1]
+\addplot[only marks, mark=*, mark size=2.2pt, color=pBlue]
+  coordinates{(1,1)(1.4,1.6)(1.8,1.2)(2.0,2.0)(1.3,2.2)(2.2,1.5)(0.9,1.8)};
+\addplot[only marks, mark=*, mark size=2.2pt, color=pRed]
+  coordinates{(5,5)(5.4,4.6)(5.8,5.2)(6.0,5.0)(5.3,5.5)(6.1,4.8)(5.7,5.8)};
+\addplot[only marks, mark=*, mark size=2.2pt, color=pGreen]
+  coordinates{(5,1)(5.4,1.6)(5.8,1.2)(6.0,2.0)(5.3,1.5)(6.1,1.8)(5.0,0.8)};
+\addplot[only marks, mark=x, mark size=5pt, pBlue,  line width=1.2pt]
+  coordinates{(1.51,1.7)};
+\addplot[only marks, mark=x, mark size=5pt, pRed,   line width=1.2pt]
+  coordinates{(5.61,5.13)};
+\addplot[only marks, mark=x, mark size=5pt, pGreen, line width=1.2pt]
+  coordinates{(5.51,1.56)};
+\end{axis}
+\end{tikzpicture}
+\caption{A clustering algorithm assigns points to three groups (shown by colour)
+without ever being told the correct group. Crosses mark the centroids.}
+\label{fig:cluster}
+\end{figure}
+
+\subsection{Side-by-Side Comparison}
+
+\begin{center}
+\begin{tabular}{lp{5.2cm}p{5.2cm}}
+\toprule
+\textbf{Aspect} & \textbf{Supervised learning} & \textbf{Unsupervised learning}\\
+\midrule
+Training data  & Pairs $(x,\,y)$ with labels & Inputs $x$ only, no labels\\
+Goal           & Learn $f$ s.t.\ $f(x)\approx y$ & Discover hidden structure\\
+Typical tasks  & Classification, regression & Clustering, anomaly detection, dimensionality reduction\\
+Classic example & Predicting house price from size & Grouping customers by behaviour\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%----------------------------------------------------------
+\section{Linear Regression Model}
+
+We now zoom in on the simplest and most important supervised learning model:
+\textbf{linear regression with one variable}. Linear regression fits a
+\emph{straight line} to a dataset and uses that line to predict numerical
+outputs from a single numerical input.
+
+\subsection{Setup and Notation}
+
+Suppose we wish to predict house prices from house sizes. A typical training
+set might look like:
+
+\begin{center}
+\begin{tabular}{cc}
+\toprule
+Size in ft$^2$ \quad ($x$, feature) & Price in \$1000s \quad ($y$, target)\\
+\midrule
+2104 & 460\\
+1416 & 232\\
+1534 & 315\\
+\phantom{0}852 & 178\\
+$\vdots$ & $\vdots$\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+We adopt the following standard notation:
+
+\begin{center}
+\begin{tabular}{llp{7cm}}
+\toprule
+\textbf{Symbol} & \textbf{Name} & \textbf{Meaning}\\
+\midrule
+$m$         & Number of examples & Total rows in the dataset\\
+$x$         & Input / feature    & E.g.\ house size in ft$^2$\\
+$y$         & Output / target    & E.g.\ house price in \$1000s\\
+$(x,\,y)$   & Training example   & A single (input, output) pair\\
+$(x^{(i)},\,y^{(i)})$ & $i$-th example & Index $i$ is a row index, \emph{not} an exponent\\
+$\hat{y}$   & Prediction         & Model output for a given $x$\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{The Linear Model}
+
+Linear regression assumes the relationship between $x$ and $y$ is
+approximately a straight line:
+\begin{equation}
+\hat{y} \;=\; f_{w,b}(x) \;=\; w\,x + b,
+\label{eq:linmodel}
+\end{equation}
+where $w$ is the \emph{slope} (or \emph{weight}) and $b$ is the
+\emph{intercept} (or \emph{bias}). Together, $w$ and $b$ are the
+\textbf{parameters} of the model — the variables we adjust during training.
+Because $y$ is a real number and the model's output is also a real number, this
+is a \emph{regression} model (not classification).
+
+\subsection{The Cost Function}
+
+To choose good parameters $w$ and $b$ we need to measure how well the line
+fits the data. This measure is called the \textbf{cost function} or
+\emph{loss function}. For linear regression the standard choice is the
+\textbf{mean squared error (MSE)} cost:
+\begin{equation}
+J(w,\,b) \;=\; \frac{1}{2m}\sum_{i=1}^{m}
+\bigl(f_{w,b}(x^{(i)}) - y^{(i)}\bigr)^2
+\;=\; \frac{1}{2m}\sum_{i=1}^{m}
+\bigl(w\,x^{(i)} + b - y^{(i)}\bigr)^2.
+\label{eq:mse-cost}
+\end{equation}
+
+The factor $\tfrac{1}{m}$ averages over all training examples, and the extra
+$\tfrac{1}{2}$ is a convenience that makes differentiation cleaner (the $2$
+from the power rule cancels). The \textbf{goal} is to choose $w,b$ to
+\emph{minimise} $J(w,b)$: when $J$ is small, the model's predictions are
+close to the true targets.
+
+\subsection{Visualising the Cost Function}
+
+To build intuition, temporarily fix $b=0$ so the model becomes
+$f_w(x)=wx$. As we vary $w$, the line rotates around the origin, and
+$J(w)$ traces a smooth, bowl-shaped (convex) curve.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.65\textwidth, height=6cm,
+  xlabel={Parameter $w$}, ylabel={Cost $J(w)$},
+  title={\textbf{Cost function is bowl-shaped (convex)}},
+  title style={font=\small\bfseries},
+  axis lines=left, samples=100, domain=-0.8:2.8,
+  enlargelimits=0.06, xtick=\empty, ytick=\empty,
+  every axis plot/.append style={line width=1.4pt}]
+\addplot[pBlue]{(x-1)^2};
+\addplot[only marks, mark=*, color=pRed, mark size=4pt]
+  coordinates{(1,0)};
+\node[above right, font=\small, pRed] at (axis cs:1.05,0) {global minimum};
+\draw[dashed, pGray, thin] (axis cs:1,0) -- (axis cs:1,0.8);
+\end{axis}
+\end{tikzpicture}
+\caption{For fixed $b$, the cost $J(w)$ is a convex (bowl-shaped) function with
+a unique global minimum. This guarantees gradient descent will find the optimal
+$w$.}
+\label{fig:Jw}
+\end{figure}
+
+When both $w$ and $b$ are free, $J(w,b)$ is a bowl in three dimensions. We
+can visualise it as a \emph{contour plot}: closed curves in the
+$(w,b)$-plane where $J$ is constant.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.58\textwidth, height=5.6cm,
+  xlabel={$w$}, ylabel={$b$},
+  title={\textbf{Contour plot of $J(w,b)$}},
+  title style={font=\small\bfseries},
+  axis lines=left, enlargelimits=0.08,
+  view={0}{90}, xtick=\empty, ytick=\empty,
+  every axis plot/.append style={line width=0.9pt}]
+\addplot[color=pBlue!90, domain=-pi:pi, samples=80]
+  ({0.45*cos(deg(x))+1},{0.45*0.6*sin(deg(x))+1});
+\addplot[color=pBlue!70, domain=-pi:pi, samples=80]
+  ({0.9*cos(deg(x))+1},{0.9*0.6*sin(deg(x))+1});
+\addplot[color=pBlue!50, domain=-pi:pi, samples=80]
+  ({1.35*cos(deg(x))+1},{1.35*0.6*sin(deg(x))+1});
+\addplot[color=pBlue!35, domain=-pi:pi, samples=80]
+  ({1.8*cos(deg(x))+1},{1.8*0.6*sin(deg(x))+1});
+\addplot[color=pBlue!22, domain=-pi:pi, samples=80]
+  ({2.25*cos(deg(x))+1},{2.25*0.6*sin(deg(x))+1});
+\addplot[only marks, mark=*, color=pRed, mark size=4pt] coordinates{(1,1)};
+\node[above right, font=\small, pRed] at (axis cs:1.05,1) {minimum};
+\end{axis}
+\end{tikzpicture}
+\caption{Contour plot of $J(w,b)$. Each elliptical curve is a level set
+$J(w,b)=c$ for some constant $c$. The global minimum is at the centre.}
+\label{fig:contour}
+\end{figure}
+
+\paragraph{Worked example.}
+Consider the tiny training set $\{(1,1),(2,2),(3,3)\}$ with model
+$f_w(x)=wx$ ($b=0$).
+
+\begin{itemize}
+\item $w=1$: predictions match targets exactly $\Rightarrow J(1)=0$.
+\item $w=0.5$: predictions are $0.5,\,1.0,\,1.5$; squared errors are
+  $0.25,\,1.0,\,2.25$; so $J(0.5)=\tfrac{3.5}{6}\approx0.583$.
+\item $w=0$: predictions all zero; $J(0)=\tfrac{14}{6}\approx2.33$.
+\end{itemize}
+
+Among these three choices, $w=1$ is optimal — perfectly fitting the data.
+
+%----------------------------------------------------------
+\section{Training the Model with Gradient Descent}
+
+We now have a clear objective: find $(w,b)$ that minimises $J(w,b)$. For linear
+regression with one variable, a closed-form solution exists, but for almost all
+other ML models we must rely on numerical optimisation. The most important such
+algorithm is \textbf{gradient descent}.
+
+\subsection{The Idea}
+
+Imagine standing at some point on a hilly landscape that represents the cost
+surface. Your goal is to reach the lowest valley. A sensible local strategy
+is: \emph{look in every direction, find where the ground slopes most steeply
+downward, and take a small step that way.} Repeat until you can no longer go
+down. This is precisely what gradient descent does. At each iteration it
+evaluates the \emph{gradient} (vector of partial derivatives) at the current
+point and moves a small amount in the direction \emph{opposite} to the
+gradient.
+
+\paragraph{Algorithm outline.}
+\begin{enumerate}
+\item \textbf{Initialise} the parameters, typically $w=0$, $b=0$.
+\item \textbf{Repeat until convergence:}
+  update $w$ and $b$ in the direction that most reduces $J(w,b)$.
+\item \textbf{Stop} when the parameters change very little between iterations
+  (the algorithm has reached a local, or for convex costs, the global minimum).
+\end{enumerate}
+
+\subsection{The Update Rule}
+
+The gradient descent update rule is applied \emph{simultaneously} to all
+parameters at every iteration:
+\begin{align}
+w &\;\leftarrow\; w \;-\; \alpha\,\pd{J(w,b)}{w},\label{eq:gd-w}\\[4pt]
+b &\;\leftarrow\; b \;-\; \alpha\,\pd{J(w,b)}{b}.\label{eq:gd-b}
+\end{align}
+
+Here $\alpha > 0$ is the \textbf{learning rate}, a small positive number that
+controls the size of each step. The word \emph{simultaneous} is important: both
+updates must use the \emph{old} values of $w$ and $b$. The correct implementation is:
+\begin{align*}
+\mathrm{tmp}_w &= w - \alpha\,\pd{J}{w}(w,b),\\
+\mathrm{tmp}_b &= b - \alpha\,\pd{J}{b}(w,b),\\
+w &\leftarrow \mathrm{tmp}_w,\quad b \leftarrow \mathrm{tmp}_b.
+\end{align*}
+
+\subsection{Derivative Intuition}
+
+For a simplified one-variable setting ($b=0$), the update is
+$w \leftarrow w - \alpha\,\tfrac{dJ}{dw}$.
+
+\begin{itemize}
+\item If the slope $\tfrac{dJ}{dw}>0$ (cost increases with $w$), the rule
+  \emph{decreases} $w$ — moving toward the minimum.
+\item If the slope $\tfrac{dJ}{dw}<0$ (cost decreases with $w$), the rule
+  \emph{increases} $w$ — again moving toward the minimum.
+\end{itemize}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.68\textwidth, height=5.8cm,
+  xlabel={Parameter $w$}, ylabel={Cost $J(w)$},
+  title={\textbf{Gradient descent descends toward the minimum}},
+  title style={font=\small\bfseries},
+  axis lines=left, samples=100, domain=-0.6:2.6,
+  enlargelimits=0.06, xtick=\empty, ytick=\empty,
+  every axis plot/.append style={line width=1.3pt}]
+\addplot[pBlue]{(x-1)^2};
+\addplot[only marks, mark=*, color=pRed, mark size=3.5pt]
+  coordinates{(-0.4,2.0)(0.18,0.67)(0.57,0.19)(0.82,0.032)(1.0,0)};
+\draw[-{Stealth[length=2.5mm]}, thick, pOrange]
+  (axis cs:-0.4,2.0) -- (axis cs:0.18,0.67);
+\draw[-{Stealth[length=2.5mm]}, thick, pOrange]
+  (axis cs:0.18,0.67) -- (axis cs:0.57,0.19);
+\draw[-{Stealth[length=2.5mm]}, thick, pOrange]
+  (axis cs:0.57,0.19) -- (axis cs:0.82,0.032);
+\draw[-{Stealth[length=2.5mm]}, thick, pOrange]
+  (axis cs:0.82,0.032) -- (axis cs:1.0,0);
+\node[above right, font=\small, pRed] at (axis cs:1.05,0) {minimum};
+\end{axis}
+\end{tikzpicture}
+\caption{Successive gradient descent steps (orange arrows) descend toward the
+minimum of the cost function.}
+\label{fig:gd-steps}
+\end{figure}
+
+\subsection{Choosing the Learning Rate}
+
+The learning rate $\alpha$ has a profound effect on training behaviour.
+
+\textbf{Too small:} Each step is tiny, so convergence is very slow and may
+require an impractical number of iterations to reach the minimum.
+
+\textbf{Too large:} Steps may \emph{overshoot} the minimum, causing the cost
+to oscillate or even grow --- the algorithm \emph{diverges}.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  name=axL,
+  width=0.46\textwidth, height=5.2cm,
+  title={$\alpha$ too small},
+  title style={font=\small\bfseries},
+  axis lines=left, samples=80, domain=-0.8:2.8,
+  enlargelimits=0.08, xtick=\empty, ytick=\empty]
+\addplot[pBlue, line width=1.2pt]{(x-1)^2};
+\addplot[only marks, mark=*, color=pRed, mark size=2.5pt]
+  coordinates{(-0.5,2.25)(-0.32,1.73)(-0.16,1.33)(0.0,1.0)(0.13,0.75)(0.24,0.57)};
+\end{axis}
+\begin{axis}[
+  name=axR, at={(axL.east)}, xshift=1.6cm,
+  width=0.46\textwidth, height=5.2cm,
+  title={$\alpha$ too large (diverges)},
+  title style={font=\small\bfseries},
+  axis lines=left, samples=80, domain=-1.5:3.5,
+  enlargelimits=0.08, xtick=\empty, ytick=\empty]
+\addplot[pBlue, line width=1.2pt]{(x-1)^2};
+\addplot[only marks, mark=*, color=pRed, mark size=2.5pt]
+  coordinates{(-0.5,2.25)(2.6,2.56)(-1.0,4.0)(3.1,4.41)};
+\draw[-{Stealth[length=2mm]}, pOrange, thick]
+  (axis cs:-0.5,2.25)--(axis cs:2.6,2.56);
+\draw[-{Stealth[length=2mm]}, pOrange, thick]
+  (axis cs:2.6,2.56)--(axis cs:-1.0,4.0);
+\draw[-{Stealth[length=2mm]}, pOrange, thick]
+  (axis cs:-1.0,4.0)--(axis cs:3.1,4.41);
+\end{axis}
+\end{tikzpicture}
+\caption{Left: a too-small $\alpha$ leads to painfully slow convergence.
+Right: a too-large $\alpha$ causes overshooting and divergence.}
+\label{fig:lr-too-small-large}
+\end{figure}
+
+\paragraph{Near a minimum.}
+At a local minimum the gradient is zero, so the update term
+$\alpha \cdot 0 = 0$ and parameters stop changing. Moreover, as the algorithm
+approaches the minimum, the gradient magnitude \emph{decreases}, so steps
+automatically become smaller even with a fixed $\alpha$. This means gradient
+descent can converge with a fixed learning rate.
+
+\subsection{Gradient Descent for Linear Regression}
+
+Differentiating the MSE cost \eqref{eq:mse-cost} term by term:
+\begin{align}
+\pd{J}{w} &= \frac{1}{m}\sum_{i=1}^{m}
+  \bigl(f_{w,b}(x^{(i)})-y^{(i)}\bigr)\,x^{(i)},\label{eq:dJdw}\\[6pt]
+\pd{J}{b} &= \frac{1}{m}\sum_{i=1}^{m}
+  \bigl(f_{w,b}(x^{(i)})-y^{(i)}\bigr).\label{eq:dJdb}
+\end{align}
+
+(The factor of 2 from differentiating the square cancels with the $\tfrac{1}{2}$
+in front of the cost.) The full \textbf{batch gradient descent for linear
+regression} algorithm is then:
+
+\medskip
+\textbf{Repeat until convergence:}
+\begin{align*}
+w &\;\leftarrow\; w - \frac{\alpha}{m}\sum_{i=1}^{m}
+  \bigl(f_{w,b}(x^{(i)})-y^{(i)}\bigr)\,x^{(i)},\\[4pt]
+b &\;\leftarrow\; b - \frac{\alpha}{m}\sum_{i=1}^{m}
+  \bigl(f_{w,b}(x^{(i)})-y^{(i)}\bigr).
+\end{align*}
+
+\paragraph{Why ``batch''?}
+This variant uses \emph{all} $m$ training examples to compute each gradient
+update (all $m$ form a single ``batch''). Other variants --- stochastic gradient
+descent, mini-batch gradient descent --- use one example or a small subset at
+a time and are introduced in later chapters.
+
+\paragraph{Convexity guarantee.}
+For the squared-error linear regression cost, $J(w,b)$ is a \emph{convex}
+function --- its 3D shape is a single bowl with no local minima other than the
+global minimum. Consequently, gradient descent with a sufficiently small
+$\alpha$ is \emph{guaranteed} to converge to the global minimum regardless of
+where the parameters are initialised.
+
+%----------------------------------------------------------
+\section*{Chapter Summary}
+\addcontentsline{toc}{section}{Chapter Summary}
+
+\begin{itemize}
+\item Machine learning is the discipline of automatically learning patterns from
+  data, rather than hand-coding explicit rules.
+\item The two largest families are \textbf{supervised learning} (labelled data,
+  predict $y$ from $x$) and \textbf{unsupervised learning} (unlabelled data,
+  discover hidden structure).
+\item Supervised problems split into \textbf{classification} (discrete output)
+  and \textbf{regression} (continuous output).
+\item Linear regression models the relationship as a straight line
+  $f_{w,b}(x)=wx+b$.
+\item The \textbf{squared-error cost} $J(w,b)$ measures how well the line fits
+  the data; the goal is to minimise $J$.
+\item \textbf{Gradient descent} iteratively updates $w$ and $b$ by moving in
+  the direction of steepest descent. The learning rate $\alpha$ controls the
+  step size.
+\item For squared-error linear regression, $J$ is convex, so gradient descent
+  always reaches the global minimum.
+\end{itemize}
+
+%----------------------------------------------------------
+\section*{Exercises}
+\addcontentsline{toc}{section}{Exercises}
+
+\begin{enumerate}
+\item For each of the following tasks, state whether it is
+  \emph{classification} or \emph{regression}, and justify your answer.
+  \begin{enumerate}[label=(\alph*)]
+  \item Predicting tomorrow's maximum temperature in Celsius.
+  \item Recognising which handwritten digit (0--9) appears in an image.
+  \item Estimating the monthly rental price of an apartment.
+  \item Detecting whether a tumour is malignant or benign.
+  \end{enumerate}
+\item Given the dataset $\{(1,2),(2,4),(3,6)\}$ and the model $f_w(x)=wx$,
+  compute $J(w)$ for $w\in\{1,\,1.5,\,2,\,2.5\}$.
+  Which value of $w$ has the lowest cost? Does this make sense intuitively?
+\item Suppose at iteration $t$ the gradient $\partial J/\partial w = -3$ and
+  $\alpha=0.1$. By how much does $w$ change, and in which direction?
+\item Explain in your own words why using a very large learning rate
+  (e.g.\ $\alpha=100$) is problematic. What would the learning curve look like?
+\item True or False: ``In supervised learning, the algorithm has to figure out
+  which categories exist by itself.'' Justify your answer.
+\item Sketch the cost function $J(w)$ for the dataset $\{(1,3),(2,5),(3,7)\}$
+  and model $f_w(x)=wx$. Where is the minimum?
+\end{enumerate}

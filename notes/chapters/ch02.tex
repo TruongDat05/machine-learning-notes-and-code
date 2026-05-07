@@ -1,0 +1,625 @@
+% =========================================================
+%  Chapter 2: Linear Regression with Multiple Variables
+% =========================================================
+\chapter{Linear Regression with Multiple Variables}
+
+In Chapter~1 we studied simple linear regression with a \emph{single} input
+feature $x$. Real-world prediction problems almost always involve
+\emph{more than one} input variable. This chapter generalises the model so
+that the target $y$ is expressed as a linear combination of $n$ features
+$x_1, x_2, \ldots, x_n$. We call this \textbf{multiple linear regression}.
+
+%----------------------------------------------------------
+\section{Multiple Features}
+
+\subsection{Motivation and Extended Notation}
+
+\begin{example}[Housing price prediction with multiple features]
+Suppose we want to predict the selling price of a house. Many attributes
+influence the price simultaneously:
+
+\begin{center}
+\begin{tabular}{llcc}
+\toprule
+& \textbf{Feature} & \textbf{Description} & \textbf{Typical range}\\
+\midrule
+$x_1$ & Size (sq.\ ft.) & Living area & 300--2{,}000\\
+$x_2$ & \# Bedrooms     & Count       & 1--5\\
+$x_3$ & \# Floors       & Count       & 1--3\\
+$x_4$ & Age (years)     & House age   & 0--80\\
+\midrule
+$y$   & Price (\$1{,}000s) & Target   & ---\\
+\bottomrule
+\end{tabular}
+\end{center}
+Each row of the training set is one house; each column (except $y$) is a
+feature.
+\end{example}
+
+We extend our notation as follows.
+
+\begin{definition}[Notation for multiple linear regression]
+Let the training set contain $m$ examples, each described by $n$ features.
+\begin{itemize}
+\item $n$ --- total number of features.
+\item $x_j$ --- the $j$-th feature $(j=1,\ldots,n)$.
+\item $\vec{x}^{(i)}=\bigl[x_1^{(i)},x_2^{(i)},\ldots,x_n^{(i)}\bigr]^{\!\top}$
+  --- the column vector of all feature values for example $i$.
+\item $x_j^{(i)}$ --- the value of feature $j$ in the $i$-th example.
+\item An overhead arrow ($\vec{\,\cdot\,}$) denotes a vector; bold font
+  $\mathbf{M}$ denotes a matrix.
+\end{itemize}
+\end{definition}
+
+\begin{remark}
+In linear algebra, vector indexing conventionally starts at 1
+(i.e.\ $w_1,w_2,\ldots$), whereas Python and NumPy use zero-based indexing
+(\texttt{w[0]}, \texttt{w[1]}, \ldots). This distinction is important when
+translating mathematical formulae into code. In particular,
+\texttt{range(n)} iterates from $0$ to $n-1$, not from $1$ to $n$.
+\end{remark}
+
+\subsection{The Multiple Linear Regression Model}
+
+\subsubsection{Scalar Form}
+
+The model predicts $y$ as a weighted sum of all $n$ features plus a bias $b$:
+\begin{equation}
+f_{\vec{w},b}(\vec{x})
+\;=\; w_1 x_1 + w_2 x_2 + \cdots + w_n x_n + b.
+\label{eq:mlr-scalar}
+\end{equation}
+Each weight $w_j\in\R$ measures the \emph{marginal effect} of feature $x_j$:
+a one-unit increase in $x_j$ changes the predicted output by $w_j$, holding
+all other features fixed. The bias $b$ is the predicted output when all
+features equal zero; it functions as a \emph{baseline}.
+
+\subsubsection{Vector (Dot-Product) Form}
+
+Collecting the weights into a row vector
+$\vec{w}=[w_1,w_2,\ldots,w_n]$ and the features into a column vector
+$\vec{x}=[x_1,x_2,\ldots,x_n]^{\top}$, Eq.~\eqref{eq:mlr-scalar} simplifies
+to
+\begin{equation}
+\boxed{f_{\vec{w},b}(\vec{x})
+\;=\; \vec{w}\cdot\vec{x}+b
+\;=\; \sum_{j=1}^{n}w_j\,x_j+b.}
+\label{eq:mlr-vec}
+\end{equation}
+
+\begin{example}[Interpreting learned parameters]
+Suppose gradient descent yields
+\[
+f(\vec{x})=0.1\,x_1+4\,x_2-2\,x_3-0.5\,x_4+80,
+\]
+with features from Example~2.1 and prices in \$1{,}000s.
+\begin{itemize}
+\item $w_1=0.1$: each additional sq.\ ft.\ adds \$100 to the predicted price.
+\item $w_2=4$: each extra bedroom adds \$4{,}000.
+\item $w_3=-2$: each additional floor \emph{reduces} the price by \$2{,}000
+  (e.g.\ reflecting higher maintenance).
+\item $w_4=-0.5$: each additional year of age reduces the price by \$500.
+\item $b=80$: baseline prediction of \$80{,}000.
+\end{itemize}
+\end{example}
+
+\subsection{Vectorisation for Computational Efficiency}
+
+\subsubsection{Why Vectorisation Matters}
+
+Computing predictions via a \texttt{for} loop is \emph{sequential}: each
+multiplication is executed one after another. Modern CPUs and GPUs contain
+specialised hardware --- SIMD (Single Instruction, Multiple Data) units ---
+that can perform many floating-point operations \emph{simultaneously}.
+\textbf{Vectorisation} phrases computations as linear-algebra operations that
+numerical libraries such as \textbf{NumPy} dispatch to that hardware
+automatically. For models with thousands of features, the speedup can reduce
+wall-clock time from hours to minutes.
+
+\subsubsection{Three Coding Approaches Compared}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Method} & \textbf{Code snippet} & \textbf{Efficiency}\\
+\midrule
+Hardcoded      & \texttt{f = w[0]*x[0]+w[1]*x[1]+\ldots}  & Low — not scalable\\[2pt]
+\texttt{for} loop & \texttt{for j in range(n): f += w[j]*x[j]} & Medium — readable but slow\\[2pt]
+Vectorised     & \texttt{f = np.dot(w, x) + b}             & High — uses parallel hardware\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsubsection{NumPy Implementation}
+
+\begin{lstlisting}[caption={Computing a prediction with NumPy}]
+import numpy as np
+
+# 4-feature housing example
+w = np.array([0.1, 4.0, -2.0, -0.5])   # weight vector  (n,)
+b = 80.0                                  # scalar bias
+x = np.array([1500, 3, 2, 10])           # one training example (n,)
+
+# Vectorised prediction (single BLAS call)
+f = np.dot(w, x) + b
+print(f"Predicted price: ${f:.1f}k")     # Predicted price: $228.0k
+\end{lstlisting}
+
+\subsubsection{Vectorised Gradient Descent Update}
+
+Rather than looping over each weight, all updates are performed in a single
+array operation:
+\begin{lstlisting}[caption={Vectorised parameter update}]
+# dw: NumPy array of partial derivatives, shape (n,)
+# db: scalar partial derivative for b
+alpha = 0.01
+
+w = w - alpha * dw   # updates ALL weights simultaneously
+b = b - alpha * db   # scalar bias update
+\end{lstlisting}
+
+\subsection{Feature Engineering}
+
+Raw features are not always the most informative representation.
+\textbf{Feature engineering} is the practice of constructing new features by
+transforming or combining existing ones, guided by domain knowledge or
+exploratory analysis.
+
+\begin{example}[Land area as an engineered feature]
+A housing dataset may contain $x_1$: lot frontage (width in metres) and
+$x_2$: lot depth (metres). We engineer
+\[
+x_3 = x_1\times x_2 \quad\text{(total land area in m}^2\text{)}.
+\]
+If area is more predictive of price than either dimension individually, the
+model will assign a large weight $w_3$. The expanded model is
+$f(\vec{x})=w_1 x_1+w_2 x_2+w_3(x_1 x_2)+b$.
+\end{example}
+
+\subsection{Polynomial Regression}
+
+Feature engineering is the bridge to \textbf{polynomial regression}: by
+including powers or other non-linear transformations of the original features,
+we fit \emph{curved} relationships while still using the linear regression
+framework — because the model remains linear in the \emph{parameters}.
+
+Let $x$ denote house size in sq.\ ft. Three natural candidates are:
+\begin{align}
+\text{Quadratic:}   &\quad f(x)=w_1 x+w_2 x^2+b,\label{eq:quad}\\
+\text{Cubic:}       &\quad f(x)=w_1 x+w_2 x^2+w_3 x^3+b,\\
+\text{Square root:} &\quad f(x)=w_1 x+w_2\sqrt{x}+b.
+\end{align}
+Each model treats $x,x^2,x^3,\sqrt{x}$ as \emph{separate features} fed into
+the standard linear regression framework.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=11cm, height=6.5cm,
+  xlabel={House size $x$ (sq.\ ft.)},
+  ylabel={Predicted price (\$1{,}000s)},
+  xmin=0, xmax=2100, ymin=0, ymax=540,
+  grid=both, grid style={gray!15, thin},
+  legend pos=north west, legend style={font=\small, fill=white},
+  tick label style={font=\small}, label style={font=\small},
+  every axis plot/.append style={line width=1.4pt}]
+\addplot[black, dashed, domain=0:2000, samples=80]{0.15*x+50};
+\addlegendentry{Linear: $0.15x+50$}
+\addplot[pBlue, domain=100:2000, samples=120]{50+0.08*x+0.00004*(x*x)};
+\addlegendentry{Quadratic}
+\addplot[pRed, domain=100:2000, samples=120]
+  {50+0.12*x-0.00003*(x*x)+0.000000015*(x*x*x)};
+\addlegendentry{Cubic}
+\addplot[pGreen, domain=1:2000, samples=150]{50+2.5*sqrt(x)};
+\addlegendentry{Square root}
+\end{axis}
+\end{tikzpicture}
+\caption{Four regression models on hypothetical housing data. The square-root
+model (green) rises steeply then flattens, the cubic (red) gives a smooth
+upward trend, and the quadratic (blue) eventually turns downward
+(possibly unrealistic).}
+\label{fig:poly}
+\end{figure}
+
+\textbf{Important:} Raising a feature to a high power dramatically expands its
+numerical range:
+\[
+x\in[1,\;1{,}000],\quad
+x^2\in[1,\;10^6],\quad
+x^3\in[1,\;10^9].
+\]
+Without feature scaling, one polynomial term would dominate the gradient
+update. The scaling techniques in Section~\ref{sec:feat_scale} must be applied
+\emph{before} running gradient descent on polynomial features.
+
+%----------------------------------------------------------
+\section{Gradient Descent in Practice}
+
+\subsection{Cost Function and Update Rules for Multiple Features}
+
+With $m$ training examples and $n$ features, the cost function generalises
+naturally:
+\begin{equation}
+J(\vec{w},b)=\frac{1}{2m}\sum_{i=1}^{m}
+\Bigl(f_{\vec{w},b}(\vec{x}^{(i)})-y^{(i)}\Bigr)^2.
+\label{eq:mlr-cost}
+\end{equation}
+
+Gradient descent updates all $n$ weights plus the bias \emph{simultaneously}:
+\begin{align}
+w_j &\leftarrow w_j-\alpha\,\pd{J}{w_j},\quad j=1,\ldots,n,\label{eq:mlr-gd-w}\\[4pt]
+b   &\leftarrow b-\alpha\,\pd{J}{b},\label{eq:mlr-gd-b}
+\end{align}
+where the partial derivatives are:
+\begin{align}
+\pd{J}{w_j} &= \frac{1}{m}\sum_{i=1}^m
+  \Bigl(f_{\vec{w},b}(\vec{x}^{(i)})-y^{(i)}\Bigr)x_j^{(i)},\label{eq:mlr-dJdw}\\[4pt]
+\pd{J}{b}   &= \frac{1}{m}\sum_{i=1}^m
+  \Bigl(f_{\vec{w},b}(\vec{x}^{(i)})-y^{(i)}\Bigr).\label{eq:mlr-dJdb}
+\end{align}
+Note that Eq.~\eqref{eq:mlr-dJdw} differs from its single-feature analogue
+only by the extra factor $x_j^{(i)}$; the bias update \eqref{eq:mlr-dJdb}
+is identical in both settings.
+
+\subsubsection{Vectorised Implementation}
+
+\begin{lstlisting}[caption={Vectorised gradient descent for multiple linear regression}]
+import numpy as np
+
+def compute_gradient(X, y, w, b):
+    """
+    X  : feature matrix (m, n)
+    y  : target vector  (m,)
+    w  : weight vector  (n,)
+    b  : bias (scalar)
+    Returns dw (n,), db (scalar)
+    """
+    m     = X.shape[0]
+    y_hat = X @ w + b        # (m,)
+    err   = y_hat - y        # (m,)
+    dw    = (X.T @ err) / m  # (n,)
+    db    = err.mean()       # scalar
+    return dw, db
+
+def gradient_descent(X, y, w, b, alpha, n_iter):
+    for _ in range(n_iter):
+        dw, db = compute_gradient(X, y, w, b)
+        w = w - alpha * dw
+        b = b - alpha * db
+    return w, b
+\end{lstlisting}
+
+\subsubsection{Gradient Descent vs.\ the Normal Equation}
+
+An alternative closed-form solution, the \textbf{Normal Equation}, finds the
+optimal parameters in a single linear algebra step:
+\[
+\vec{w}^*=\bigl(X^{\top}X\bigr)^{-1}X^{\top}\mathbf{y}.
+\]
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Property} & \textbf{Gradient Descent} & \textbf{Normal Equation}\\
+\midrule
+Iterations        & Many (iterative) & None (one-shot)\\
+Learning rate     & Must be tuned    & Not required\\
+Complexity        & $O(k\cdot mn)$   & $O(n^3)$ for matrix inversion\\
+Scalability       & Excellent ($n>10^6$ feasible) & Slow for $n>10{,}000$\\
+Applicability     & Any ML algorithm & Linear regression only\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+For large-scale problems, gradient descent (and its stochastic or mini-batch
+variants) is the standard choice.
+
+%----------------------------------------------------------
+\subsection{Feature Scaling}
+\label{sec:feat_scale}
+
+\subsubsection{Motivation}
+
+When features have very different numerical ranges, the cost function takes on
+an elongated, elliptical shape in parameter space (Figure~\ref{fig:contours}).
+Gradient descent then oscillates along the steep walls of these ellipses rather
+than heading directly toward the minimum, leading to slow convergence. Scaling
+features to comparable ranges makes the cost function nearly \emph{spherical}
+and gradient descent converges in far fewer iterations.
+
+\begin{figure}[h]
+\centering
+\begin{subfigure}[b]{0.46\linewidth}
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=6.4cm, height=5.5cm,
+  xlabel={$w_1$}, ylabel={$w_2$},
+  xmin=-2.2, xmax=2.2, ymin=-4.8, ymax=4.8,
+  tick label style={font=\tiny}, label style={font=\small},
+  title={\small\textbf{Unscaled features}},
+  axis lines=left]
+\foreach \rx/\ry in {0.3/2.4, 0.6/1.9, 1.0/1.4, 1.5/0.9}{
+  \addplot[pBlue!50, domain=0:360, samples=80, no marks]
+    ({\rx*cos(x)},{\ry*sin(x)});}
+\addplot[black, very thick, -{Stealth[length=2.5mm]},
+  mark=*, mark size=1.6pt, mark options={fill=black}]
+  coordinates{(-1.4,3.5)(-0.7,-2.8)(-0.2,1.8)(0,-1.1)(0,0)};
+\addplot[mark=*, mark size=3.5pt,
+  mark options={fill=pRed, draw=pRed}] coordinates{(0,0)};
+\end{axis}
+\end{tikzpicture}
+\caption{Oscillating, slow convergence}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.46\linewidth}
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=6.4cm, height=5.5cm,
+  xlabel={$w_1$}, ylabel={$w_2$},
+  xmin=-2.2, xmax=2.2, ymin=-2.2, ymax=2.2,
+  tick label style={font=\tiny}, label style={font=\small},
+  title={\small\textbf{Scaled features}},
+  axis equal, axis lines=left]
+\foreach \r in {0.4, 0.8, 1.2, 1.7}{
+  \addplot[pBlue!50, domain=0:360, samples=80, no marks]
+    ({\r*cos(x)},{\r*sin(x)});}
+\addplot[black, very thick, -{Stealth[length=2.5mm]},
+  mark=*, mark size=1.6pt, mark options={fill=black}]
+  coordinates{(-1.5,1.4)(-0.8,0.7)(-0.2,0.2)(0,0)};
+\addplot[mark=*, mark size=3.5pt,
+  mark options={fill=pRed, draw=pRed}] coordinates{(0,0)};
+\end{axis}
+\end{tikzpicture}
+\caption{Direct, rapid convergence}
+\end{subfigure}
+\caption{Contour plots of $J(w_1,w_2)$. Without scaling (left), elongated
+ellipses cause a slow, oscillating gradient path. With scaling (right), the
+contours are circular and gradient descent converges directly. Red dot marks
+the global minimum.}
+\label{fig:contours}
+\end{figure}
+
+\subsubsection{Feature Magnitude vs.\ Parameter Magnitude}
+
+There is an \textbf{inverse relationship} between a feature's range and the
+magnitude of its learned weight:
+\begin{itemize}
+\item A feature with a \emph{large} range (e.g.\ size $\approx 1{,}000$
+  sq.\ ft.) needs only a \emph{small} weight ($w_1\approx 0.1$) to produce
+  a reasonable contribution to the prediction.
+\item A feature with a \emph{small} range (e.g.\ bedrooms $\approx 1$--$5$)
+  needs a \emph{large} weight ($w_2\approx 50$) to have comparable influence.
+\end{itemize}
+Unequal weight magnitudes lead to cost-function contours with very different
+curvature along each axis, causing the oscillatory behaviour seen above.
+
+\subsubsection{Scaling Techniques}
+
+\paragraph{A.\ Division by Maximum}
+\begin{equation}
+x_j^{\text{scaled}}=\frac{x_j}{\max(x_j)}.
+\end{equation}
+Maps all values to $[0,1]$ (assuming non-negative features). Simple but
+sensitive to outliers.
+
+\paragraph{B.\ Mean Normalisation}
+\begin{equation}
+x_j\;\leftarrow\;\frac{x_j-\mu_j}{\max(x_j)-\min(x_j)},
+\end{equation}
+where $\mu_j$ is the feature mean. Results fall approximately in $[-1,+1]$.
+
+\paragraph{C.\ Z-Score Normalisation (Standardisation)}
+\begin{equation}
+x_j\;\leftarrow\;\frac{x_j-\mu_j}{\sigma_j},
+\label{eq:zscore}
+\end{equation}
+where $\sigma_j$ is the standard deviation. After this transformation each
+feature has \emph{zero mean} and \emph{unit variance}. This is the most widely
+used method and is especially effective when features follow approximately
+Gaussian distributions.
+
+\begin{example}[Z-score normalisation in numbers]
+Suppose $x_1$ (house size) has $\mu_1=1{,}000$ sq.\ ft.\ and $\sigma_1=500$.
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+House & Raw $x_1$ & Mean-normalised & Z-score\\
+\midrule
+A & $300$  & $\frac{300-1000}{1700}\approx-0.41$ & $\frac{300-1000}{500}=-1.40$\\[4pt]
+B & $1000$ & $\frac{1000-1000}{1700}=0.00$        & $\frac{1000-1000}{500}=0.00$\\[4pt]
+C & $2000$ & $\frac{2000-1000}{1700}\approx+0.59$ & $\frac{2000-1000}{500}=+2.00$\\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{example}
+
+\subsubsection{Practical Guidelines}
+
+The target after scaling is approximately $-1\le x_j\le 1$ for each feature.
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Feature range (before scaling)} & \textbf{Rescale?} & \textbf{Reason}\\
+\midrule
+$[-3,+3]$ or narrower           & Usually not & Acceptable range\\
+$[-0.3,+0.3]$ or narrower       & Yes         & Too small; gradients negligible\\
+$[-100,+100]$ or wider           & Yes         & Dominates gradient update\\
+$[0,0.001]$ or very compressed  & Yes         & Creates near-zero steps\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{remark}
+Features need not be \emph{perfectly} comparable — merely \emph{roughly} in
+the same ballpark. When in doubt, always scale: it virtually never hurts
+performance and almost always accelerates convergence.
+\end{remark}
+
+\subsubsection{Implementation with NumPy and Scikit-learn}
+
+\begin{lstlisting}[caption={Z-score normalisation in NumPy and Scikit-learn}]
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+
+# --- Manual (NumPy) ---
+mu    = X_train.mean(axis=0)      # compute on TRAINING set only
+sigma = X_train.std(axis=0)
+X_train_sc = (X_train - mu) / sigma
+X_test_sc  = (X_test  - mu) / sigma   # apply SAME stats to test set
+
+# --- Scikit-learn ---
+scaler = StandardScaler()
+X_train_sc = scaler.fit_transform(X_train)   # fit + transform
+X_test_sc  = scaler.transform(X_test)        # transform only (no re-fit!)
+\end{lstlisting}
+
+\begin{remark}
+\textbf{Always} compute $\mu_j$ and $\sigma_j$ from the \emph{training set
+only}, then apply those same constants to the validation and test sets.
+Fitting the scaler on the test set constitutes \textbf{data leakage} and leads
+to overly optimistic performance estimates.
+\end{remark}
+
+%----------------------------------------------------------
+\subsection{Checking for Convergence}
+
+\subsubsection{The Learning Curve}
+
+A \textbf{learning curve} plots the training cost $J(\vec{w},b)$ against the
+number of gradient descent iterations. It is the primary diagnostic tool for
+verifying that training is proceeding correctly.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=10.5cm, height=6cm,
+  xlabel={Iteration}, ylabel={Cost $J(\vec{w},b)$},
+  xmin=0, xmax=500, ymin=0, ymax=1150,
+  grid=both, grid style={gray!15, thin},
+  tick label style={font=\small}, label style={font=\small},
+  every axis plot/.append style={line width=1.4pt}]
+\addplot[pBlue, domain=0:500, samples=200]{1050*exp(-0.016*x)+50};
+\draw[pGray, dashed, thick] (axis cs:300,0)--(axis cs:300,1100);
+\node[font=\small, fill=white, inner sep=2pt, align=center]
+  at (axis cs:410,640) {Converged\\(curve flattens)};
+\draw[-{Stealth[length=2mm]}, pGray, thick]
+  (axis cs:388,580)--(axis cs:325,120);
+\end{axis}
+\end{tikzpicture}
+\caption{A typical learning curve. The cost decreases rapidly at first, then
+levels off as the algorithm converges. A curve that increases or oscillates
+signals a learning rate that is too large or a bug in the code.}
+\label{fig:learning-curve}
+\end{figure}
+
+Key observations:
+\begin{itemize}
+\item A correct implementation always produces a \emph{monotonically
+  decreasing} curve.
+\item The number of iterations needed varies enormously by problem — from
+  as few as 30 to over 100{,}000.
+\item When the curve flattens, gradient descent has approximately converged.
+\item An \emph{increasing} or \emph{oscillating} curve is a red flag: either
+  $\alpha$ is too large, or there is a bug (e.g.\ using $+\alpha$ instead of
+  $-\alpha$).
+\end{itemize}
+
+\subsubsection{Automatic Convergence Test}
+
+Declare convergence when the decrease in cost over one iteration is smaller
+than a threshold $\varepsilon$ (e.g.\ $\varepsilon=10^{-3}$):
+\[
+\bigl|J^{(\text{iter})}-J^{(\text{iter}-1)}\bigr|\le\varepsilon.
+\]
+Choosing a reliable $\varepsilon$ is difficult in practice; visual inspection
+of the learning curve is often more informative.
+
+%----------------------------------------------------------
+\subsection{Choosing the Learning Rate}
+
+\subsubsection{Diagnosing a Poor Learning Rate}
+
+\begin{itemize}
+\item \textbf{Monotonically increasing cost}: $\alpha$ is almost certainly too
+  large — the update step overshoots the minimum.
+\item \textbf{Oscillating cost}: $\alpha$ is too large; parameters bounce from
+  one side of the minimum to the other.
+\item \textbf{Very slow decrease}: $\alpha$ is too small; convergence will take
+  an impractical number of iterations.
+\item \textbf{Cost increases even with tiny $\alpha$}: there is likely a
+  \emph{code bug} — the most common error is using $+\alpha$ in the update rule.
+\end{itemize}
+
+\subsubsection{Debugging Strategy}
+
+Set $\alpha$ to an extremely small value (e.g.\ $\alpha=10^{-10}$) and confirm
+that $J$ decreases monotonically. If it does not, the bug lies in the gradient
+computation, not the learning rate.
+
+\subsubsection{Grid Search for $\alpha$}
+
+Test a logarithmically spaced range, roughly tripling each candidate:
+\[
+0.001\;\to\;0.003\;\to\;0.01\;\to\;0.03\;\to\;0.1\;\to\;0.3\;\to\;1.
+\]
+For each candidate, run a small number of iterations and plot the learning
+curve. Select the \textbf{largest} value of $\alpha$ that still produces a
+consistently decreasing curve.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=10.5cm, height=6cm,
+  xlabel={Iteration}, ylabel={Cost $J$},
+  xmin=0, xmax=150, ymin=0, ymax=1150,
+  grid=both, grid style={gray!15, thin},
+  tick label style={font=\small}, label style={font=\small},
+  legend pos=north east, legend style={font=\small, fill=white},
+  every axis plot/.append style={line width=1.3pt}]
+\addplot[pGray, domain=0:150, samples=100]{1050*exp(-0.002*x)+50};
+\addlegendentry{$\alpha=0.001$}
+\addplot[pBlue, domain=0:150, samples=100]{1050*exp(-0.020*x)+50};
+\addlegendentry{$\alpha=0.01$}
+\addplot[pRed, domain=0:150, samples=100]{1050*exp(-0.12*x)+50};
+\addlegendentry{$\alpha=0.1$ (best)}
+\end{axis}
+\end{tikzpicture}
+\caption{Learning curves for three candidate learning rates. The largest stable
+value ($\alpha=0.1$) converges the fastest.}
+\label{fig:lr-grid}
+\end{figure}
+
+%----------------------------------------------------------
+\section*{Chapter Summary}
+\addcontentsline{toc}{section}{Chapter Summary}
+
+\begin{itemize}
+\item \textbf{Multiple linear regression} models the target as
+  $f_{\vec{w},b}(\vec{x})=\vec{w}\cdot\vec{x}+b$, a weighted sum of $n$
+  features plus a bias.
+\item Each weight $w_j$ captures the marginal effect of feature $x_j$,
+  holding others fixed. Positive $w_j$ indicates a direct relationship;
+  negative indicates an inverse relationship.
+\item \textbf{Vectorisation} (via \texttt{np.dot}) replaces slow sequential
+  loops with parallel hardware instructions, yielding dramatic speedups.
+\item \textbf{Feature engineering} (e.g.\ products, ratios) and
+  \textbf{polynomial regression} (powers of $x$) can reveal more predictive
+  representations while preserving the linear regression framework.
+\item \textbf{Feature scaling} (especially z-score normalisation) maps features
+  to comparable ranges, converting elongated cost ellipses into nearly circular
+  contours, greatly accelerating gradient descent.
+\item The \textbf{learning curve} (cost vs.\ iterations) is the key diagnostic:
+  a correct implementation yields a monotonically decreasing, eventually flat
+  curve.
+\item The \textbf{learning rate} $\alpha$ should be the largest value that
+  produces stable, monotonic decrease; test candidates on a logarithmic grid.
+\item The \textbf{Normal Equation} offers a closed-form alternative but is
+  computationally impractical for $n\gtrsim 10{,}000$.
+\end{itemize}

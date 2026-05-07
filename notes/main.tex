@@ -1,0 +1,201 @@
+% =========================================================
+%  Foundations of Machine Learning
+%  Lecture Notes by Dat Quoc Truong
+%  A4 · pdfLaTeX · Overleaf-compatible
+% =========================================================
+\documentclass[11pt,a4paper,oneside]{book}
+
+% ── Core packages ─────────────────────────────────────────
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{palatino}
+\usepackage{mathpazo}
+\usepackage[a4paper,
+            top=2.8cm, bottom=2.8cm,
+            left=3.0cm, right=2.8cm,
+            headheight=15pt]{geometry}
+
+% ── Math ──────────────────────────────────────────────────
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+
+% ── Graphics & colour ─────────────────────────────────────
+\usepackage{graphicx}
+\usepackage[dvipsnames,svgnames,x11names]{xcolor}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{tikz}
+\usetikzlibrary{
+  arrows.meta, positioning, shapes.geometric,
+  calc, decorations.pathreplacing, fit, patterns,
+  backgrounds, shadows}
+
+% ── Tables ────────────────────────────────────────────────
+\usepackage{booktabs,array,tabularx,longtable,multirow}
+\renewcommand{\arraystretch}{1.25}
+
+% ── Captions & floats ─────────────────────────────────────
+\usepackage{caption,subcaption,float}
+\captionsetup{
+  font=small, labelfont=bf,
+  skip=6pt, margin=10pt}
+
+% ── Code listings ─────────────────────────────────────────
+\usepackage{listings}
+\definecolor{lst@bg}{RGB}{250,250,252}
+\definecolor{lst@kw}{RGB}{0,64,153}
+\definecolor{lst@str}{RGB}{163,21,21}
+\definecolor{lst@cmt}{RGB}{100,100,100}
+\lstset{
+  language=Python,
+  backgroundcolor=\color{lst@bg},
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{lst@kw}\bfseries,
+  stringstyle=\color{lst@str},
+  commentstyle=\color{lst@cmt}\itshape,
+  numberstyle=\tiny\color{gray},
+  numbers=left, numbersep=8pt,
+  breaklines=true,
+  frame=single, framerule=0.4pt,
+  rulecolor=\color{gray!40},
+  showstringspaces=false,
+  tabsize=4, captionpos=b,
+  xleftmargin=1.6em, framexleftmargin=1.6em,
+  aboveskip=8pt, belowskip=6pt,
+  morekeywords={Sequential,Dense,model,compile,fit,predict,
+                Adam,BinaryCrossentropy,SparseCategoricalCrossentropy,
+                MeanSquaredError,from_logits,activation,units,
+                optimizer,loss,epochs,learning_rate,
+                tf,keras,tensorflow,StandardScaler,
+                XGBClassifier,XGBRegressor,np,plt}}
+
+% ── Algorithms ────────────────────────────────────────────
+\usepackage{algorithm,algpseudocode}
+
+% ── Typography & spacing ──────────────────────────────────
+\usepackage[final]{microtype}
+\usepackage{setspace}
+\setstretch{1.15}
+\usepackage{parskip}
+\setlength{\parskip}{5pt plus 1pt minus 1pt}
+\setlength{\parindent}{0pt}
+\usepackage{enumitem}
+\setlist{itemsep=2pt,topsep=3pt}
+
+% ── Headers & footers ─────────────────────────────────────
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\itshape\leftmark}
+\fancyhead[R]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancypagestyle{plain}{%
+  \fancyhf{}
+  \fancyhead[R]{\small\thepage}
+  \renewcommand{\headrulewidth}{0pt}}
+
+% ── Section formatting ────────────────────────────────────
+\usepackage{titlesec}
+\titleformat{\chapter}[display]
+  {\normalfont\LARGE\bfseries}
+  {\chaptertitlename\ \thechapter}{14pt}{\Huge}
+\titlespacing*{\chapter}{0pt}{20pt}{18pt}
+\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
+\titlespacing*{\section}{0pt}{14pt}{5pt}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+\titlespacing*{\subsection}{0pt}{10pt}{4pt}
+\titleformat{\subsubsection}{\normalsize\itshape\bfseries}{\thesubsubsection}{1em}{}
+\titlespacing*{\subsubsection}{0pt}{8pt}{3pt}
+
+% ── Table of contents ─────────────────────────────────────
+\usepackage{tocloft}
+\setcounter{tocdepth}{2}
+\renewcommand{\cftchapfont}{\bfseries}
+\renewcommand{\cftchapleader}{\cftdotfill{\cftdotsep}}
+\setlength{\cftbeforechapskip}{5pt}
+
+% ── Theorem environments ──────────────────────────────────
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{example}{Example}[section]
+\newtheorem{remark}{Remark}[section]
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}{Proposition}[section]
+
+% ── Hyperref (load last) ──────────────────────────────────
+\usepackage[
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=NavyBlue,
+  citecolor=black,
+  pdftitle={Foundations of Machine Learning},
+  pdfauthor={Dat Quoc Truong}]{hyperref}
+
+% ── Colour palette for figures ────────────────────────────
+\definecolor{pBlue}{RGB}{31,119,180}
+\definecolor{pOrange}{RGB}{214,95,14}
+\definecolor{pGreen}{RGB}{44,160,44}
+\definecolor{pRed}{RGB}{192,0,0}
+\definecolor{pGray}{RGB}{130,130,130}
+\definecolor{pPurple}{RGB}{148,103,189}
+\definecolor{pBrown}{RGB}{140,86,75}
+\definecolor{pPink}{RGB}{227,119,194}
+\definecolor{cA}{RGB}{70,130,180}
+\definecolor{cB}{RGB}{210,80,80}
+\definecolor{cC}{RGB}{60,165,90}
+\definecolor{cD}{RGB}{220,140,0}
+\definecolor{nodeBlue}{RGB}{173,216,230}
+\definecolor{nodeGreen}{RGB}{198,230,198}
+\definecolor{nodeGray}{RGB}{220,220,220}
+
+% ── Math convenience macros ───────────────────────────────
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\vx}{\vec{x}}
+\newcommand{\vw}{\vec{w}}
+\newcommand{\va}{\vec{a}}
+\newcommand{\pd}[2]{\dfrac{\partial #1}{\partial #2}}
+\newcommand{\IG}{\mathrm{IG}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argmax}{arg\,max}
+
+% =========================================================
+\begin{document}
+% =========================================================
+
+% ── Title page ────────────────────────────────────────────
+\begin{titlepage}
+\centering
+\vspace*{2.5cm}
+{\fontsize{40}{48}\selectfont\bfseries Foundations of\\[0.3em]
+Machine Learning\par}
+\vspace{1.2cm}
+\rule{0.55\textwidth}{0.8pt}\\[0.9em]
+{\Large\itshape Lecture Notes by Dat Quoc Truong\par}
+\vspace{0.9cm}
+\rule{0.55\textwidth}{0.4pt}\\[1.2em]
+{\large Chapters 1\,--\,10: From Linear Regression to
+Reinforcement Learning\par}
+\vfill
+{\normalsize\itshape A Comprehensive Beginner's Textbook\par}
+\vspace{1.5cm}
+\end{titlepage}
+
+\cleardoublepage
+
+% ── Table of contents ─────────────────────────────────────
+\tableofcontents
+\clearpage
+
+% ── Chapters ──────────────────────────────────────────────
+\input{chapters/ch01}
+\input{chapters/ch02}
+\input{chapters/ch03}
+\input{chapters/ch04}
+\input{chapters/ch05}
+\input{chapters/ch06}
+\input{chapters/ch07}
+\input{chapters/ch08}
+\input{chapters/ch09}
+\input{chapters/ch10}
+
+\end{document}

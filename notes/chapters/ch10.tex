@@ -1,0 +1,369 @@
+% =========================================================
+%  Chapter 10: Reinforcement Learning
+% =========================================================
+\chapter{Reinforcement Learning}
+
+Reinforcement Learning (RL) is the third major pillar of machine learning,
+alongside supervised and unsupervised learning. Where supervised learning
+requires labelled examples of the correct answer and unsupervised learning
+discovers hidden structure, RL trains an \textbf{agent} to take sequential
+decisions by interacting with an \textbf{environment} and receiving feedback
+as numerical \textbf{rewards}. The key feature: the system is told
+\emph{what to achieve} (via the reward function), not \emph{how to achieve it}.
+
+%----------------------------------------------------------
+\section{Core Concepts}
+
+\subsection{What Is Reinforcement Learning?}
+
+Learning proceeds by \textbf{trial and error}: the agent tries actions,
+observes consequences, receives reward/penalty signals, and gradually improves
+its behaviour to maximise cumulative reward.
+
+\textit{Analogy.} Training a dog: sitting on command earns a treat (positive
+reward); misbehaving earns a scolding (negative reward). Over many repetitions
+the dog learns which behaviours earn treats.
+
+\paragraph{RL vs.\ supervised learning.}
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Feature} & \textbf{Supervised Learning} & \textbf{Reinforcement Learning}\\
+\midrule
+Input/output & $x\mapsto y$ (label) & $s\mapsto a$ (action)\\
+Data & Expert-labelled dataset & Reward function + experience\\
+Objective & Predict correct label & Maximise cumulative reward\\
+Exploration & None & Essential\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+A fundamental advantage of RL for control tasks: for complex motor control
+(robotic locomotion, aerobatic flight) it is often impossible to specify the
+optimal action in every state. A reward function sidesteps this.
+
+\subsection{Key Components}
+
+\begin{enumerate}
+\item \textbf{State} $s$: complete description of the current situation.
+\item \textbf{Action} $a$: the decision made at each step.
+\item \textbf{Reward} $R(s)$: scalar feedback signal.
+\item \textbf{Policy} $\pi$: function mapping states to actions,
+  $\pi(s)=a$.
+\item \textbf{Return} $G$: discounted cumulative reward (defined below).
+\end{enumerate}
+
+\subsection{The Discount Factor and Return}
+
+The \textbf{discount factor} $\gamma\in[0,1)$ encodes the agent's degree of
+patience.
+
+\begin{equation}
+\boxed{G=R_1+\gamma R_2+\gamma^2 R_3+\cdots
+=\sum_{k=0}^\infty\gamma^k R_{k+1}.}
+\label{eq:return}
+\end{equation}
+
+\begin{itemize}
+\item $\gamma\approx 1$ (patient): future rewards nearly as valuable as
+  immediate ones.
+\item $\gamma\approx 0$ (myopic): rewards a few steps away are heavily
+  discounted.
+\end{itemize}
+
+\textit{Financial analogy.} $\gamma$ mirrors the time value of money: a
+reward now is more valuable than the same reward after $k$ time steps.
+
+\paragraph{Example (Mars Rover, $\gamma=0.5$).}
+Starting at state $s=4$, moving left: reward sequence $[0,0,0,100]$.
+\[G=0+0.5(0)+0.25(0)+0.125(100)=12.5.\]
+
+\begin{center}
+\begin{tabular}{llcc}
+\toprule
+Start & Policy & Reward sequence & Return ($\gamma=0.5$)\\
+\midrule
+$s=4$ & Always Left  & $[0,0,0,100]$ & $12.5$\\
+$s=2$ & Always Left  & $[0,100]$     & $50.0$\\
+$s=4$ & Always Right & $[0,0,40]$    & $10.0$\\
+$s=5$ & Always Right & $[0,40]$      & $20.0$\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Markov Decision Processes (MDPs)}
+
+The standard mathematical framework for RL.
+
+\begin{itemize}
+\item \textbf{Markov property}: the future depends only on the present state,
+  not on the history.
+\item \textbf{Agent--environment loop}: observe $s$, select $a=\pi(s)$,
+  environment transitions to $s'$, agent receives $R(s)$. Repeat.
+\end{itemize}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw, rounded corners=4pt, minimum width=2.8cm,
+              minimum height=1.0cm, align=center, fill=nodeGray!60},
+  arr/.style={-{Stealth[length=3mm]}, thick}]
+\node[box] (agent) {Agent\\$\pi(s)=a$};
+\node[box, right=4.5cm of agent] (env) {Environment};
+\draw[arr] (agent.east) -- node[above]{\small action $a$} (env.west);
+\draw[arr] (env.south) -- ++(0,-0.9) -|
+  node[below, pos=0.25]{\small reward $R(s)$} (agent.south);
+\draw[arr] (env.north) -- ++(0,0.9) -|
+  node[above, pos=0.25]{\small new state $s'$} (agent.north);
+\end{tikzpicture}
+\caption{The agent--environment interaction loop in a Markov Decision Process.}
+\label{fig:mdp-loop}
+\end{figure}
+
+%----------------------------------------------------------
+\section{State-Action Value Function and the Bellman Equation}
+
+\subsection{The Q-Function}
+
+\begin{definition}[Q-function / Action-value function]
+$Q(s,a)$ is the \textbf{total discounted return} obtained by:
+\begin{enumerate}
+\item Starting in state $s$.
+\item Taking action $a$ exactly once.
+\item Following the \emph{optimal} policy thereafter.
+\end{enumerate}
+\end{definition}
+
+The optimal policy selects:
+\begin{equation}
+\pi^*(s)=\argmax_a\,Q(s,a).
+\label{eq:greedy}
+\end{equation}
+
+\begin{center}
+\begin{tabular}{llcc}
+\toprule
+State $s$ & Action $a$ & Reward sequence & $Q(s,a)$ ($\gamma=0.5$)\\
+\midrule
+$s=2$ & Left  & $[0,100]$  & $0.5\times 100=50.0$\\
+$s=2$ & Right & $[0,0,0,100]$ & $0.5^3\times 100=12.5$\\
+$s=4$ & Left  & $[0,0,0,100]$ & $12.5$\\
+$s=4$ & Right & $[0,0,40]$    & $10.0$\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{The Bellman Equation}
+
+\begin{equation}
+\boxed{Q(s,a)=R(s)+\gamma\max_{a'}Q(s',a').}
+\label{eq:bellman}
+\end{equation}
+
+\paragraph{Components.}
+\begin{description}
+\item[$R(s)$] Immediate reward for the current step.
+\item[$\gamma$] Discount factor.
+\item[$\max_{a'}Q(s',a')$] Best possible future return from the next state.
+\end{description}
+
+At terminal states: $Q(s,a)=R(s)$.
+
+\paragraph{Derivation sketch.}
+\[G=R_1+\gamma R_2+\gamma^2 R_3+\cdots
+=R(s)+\gamma(R_2+\gamma R_3+\cdots)
+=R(s)+\gamma\max_{a'}Q(s',a').\quad\square\]
+
+\paragraph{Stochastic environments.}
+When transitions are random, the Bellman equation includes an expectation:
+\begin{equation}
+Q(s,a)=R(s)+\gamma\,\mathbb{E}[\max_{a'}Q(s',a')].
+\label{eq:bellman-stoch}
+\end{equation}
+
+\begin{lstlisting}[caption={Tabular value iteration for the Mars Rover}]
+import numpy as np
+
+num_states, gamma = 6, 0.5
+rewards   = np.array([100, 0, 0, 0, 0, 40])
+q_table   = np.zeros((num_states, 2))   # 2 actions: left=0, right=1
+
+def next_state(s, a):
+    return max(0, s-1) if a == 0 else min(5, s+1)
+
+for _ in range(20):
+    for s in range(1, 5):
+        for a in range(2):
+            s2 = next_state(s, a)
+            terminal = (s2 in [0, 5])
+            r = rewards[s2] if terminal else 0
+            q_table[s, a] = r + (0 if terminal else gamma*q_table[s2].max())
+
+policy = {s: ['Left','Right'][q_table[s].argmax()] for s in range(1,5)}
+print(policy)
+\end{lstlisting}
+
+%----------------------------------------------------------
+\section{Continuous State Spaces and Deep Q-Networks}
+
+\subsection{Continuous States}
+
+Real problems require continuous state vectors. A self-driving truck:
+$s=[x,y,\theta,\dot{x},\dot{y},\dot{\theta}]$. A helicopter: 12 state
+variables. A lookup table is no longer feasible; a neural network must
+approximate $Q(s,a)$.
+
+\subsection{Lunar Lander Case Study}
+
+\textbf{State}: $s=[x,y,\dot{x},\dot{y},\theta,\dot{\theta},l,r]$ (8D).
+
+\textbf{Actions}: do nothing, fire left thruster, fire main engine, fire right
+thruster.
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Event} & \textbf{Reward} & \textbf{Purpose}\\
+\midrule
+Reaching landing pad & $+100$ to $+140$ & Primary objective\\
+Moving toward pad     & Positive          & Progress\\
+Crash                & $-100$            & Severe penalty\\
+Soft landing         & $+100$            & Bonus\\
+Each leg grounded    & $+10$             & Stability\\
+Main engine firing   & $-0.3$            & Fuel cost\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Learning objective: maximise $G_t=\sum_{k\ge 0}\gamma^k R_{t+k+1}$,
+$\gamma=0.985$.
+
+\subsection{DQN Architecture}
+
+Feed only the state $s$ (8 values) into the network; output
+\emph{all four Q-values simultaneously}:
+
+\begin{itemize}
+\item \textbf{Input}: 8D state vector.
+\item \textbf{Hidden}: two fully connected layers, 64 ReLU units each.
+\item \textbf{Output}: 4 scalar units, one per action.
+\end{itemize}
+
+\textbf{Advantage}: a single forward pass identifies $\argmax_a Q(s,a)$,
+replacing four separate passes.
+
+\paragraph{Training target.}
+Treat as supervised learning: input $=(s,a)$, target $=R(s)+\gamma\max_{a'}Q(s',a')$.
+
+\subsection{The DQN Algorithm}
+
+\begin{enumerate}
+\item Initialise network $Q$ with random weights.
+\item Collect experience: store $(s,a,R(s),s')$ tuples in a
+  \textbf{replay buffer}.
+\item Sample a mini-batch from the buffer.
+\item Compute targets $y_i=R(s_i)+\gamma\max_{a'}Q(s_i',a')$.
+\item Train $Q_{\text{new}}$ on the mini-batch using MSE loss.
+\item Soft-update: $Q\leftarrow Q_{\text{new}}$.
+\item Repeat.
+\end{enumerate}
+
+\subsection{The $\varepsilon$-Greedy Policy}
+
+With probability $\varepsilon$: take a random action (exploration).
+With probability $1-\varepsilon$: take $\argmax_a Q(s,a)$ (exploitation).
+
+\textbf{Decay schedule}: start $\varepsilon=1.0$, decay toward $0.01$ over
+training.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=10cm, height=5.5cm,
+  xlabel={Training episode}, ylabel={$\varepsilon$},
+  xmin=0, xmax=1000, ymin=0, ymax=1.1,
+  grid=major, grid style={gray!15, thin},
+  tick label style={font=\small}, label style={font=\small},
+  every axis plot/.append style={line width=1.4pt}]
+\addplot[pBlue, domain=0:1000, samples=200]
+  {0.99*exp(-0.005*x)+0.01};
+\addplot[pGray, dashed] coordinates{(0,0.01)(1000,0.01)};
+\node[font=\small, pGray] at (axis cs:600,0.07)
+  {$\varepsilon_{\min}=0.01$};
+\end{axis}
+\end{tikzpicture}
+\caption{Exponential $\varepsilon$-decay from 1.0 toward 0.01 over training.}
+\label{fig:eps-decay}
+\end{figure}
+
+\subsection{Mini-Batch and Soft Updates}
+
+\paragraph{Mini-batch gradient descent.}
+Sample $m'\ll m$ examples from the replay buffer per update step. Cheaper per
+step; more steps per wall-clock time; noisy but converges faster in practice.
+
+\paragraph{Soft updates.}
+Blend new parameters gradually:
+\[W\leftarrow\tau W_{\text{new}}+(1-\tau)W,\quad
+  b\leftarrow\tau b_{\text{new}}+(1-\tau)b.\]
+Typical $\tau=0.01$: only $1\%$ of new parameters incorporated per step.
+Prevents a single poor mini-batch from corrupting the policy.
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Technique} & \textbf{Purpose} & \textbf{Benefit}\\
+\midrule
+Replay buffer    & Decouple collection from training & Data diversity\\
+Mini-batching    & Updates on random subsets & Training speed\\
+Soft updates     & Blend new weights gradually & Stability\\
+$\varepsilon$-greedy & Balance exploration/exploitation & Avoid local optima\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%----------------------------------------------------------
+\section{The State of Reinforcement Learning}
+
+\paragraph{Current deployment.}
+Despite breakthroughs (AlphaGo, AlphaStar, OpenAI Five), RL deployment in
+industry is narrower than supervised/unsupervised learning. Most production ML
+uses labelled data.
+
+\paragraph{The simulation-to-reality gap.}
+RL algorithms are typically developed in simulation. Policies trained there may
+rely on unrealistic assumptions and fail on real hardware (e.g.\ sensor noise,
+actuator delays). Active research in domain randomisation and sim-to-real
+transfer aims to close this gap.
+
+\paragraph{Future directions.}
+\begin{itemize}
+\item \textbf{Autonomous control}: the primary framework for sequential
+  decision-making in robotics, logistics, and finance.
+\item \textbf{Alignment research}: RLHF (Reinforcement Learning from Human
+  Feedback) is central to training large language models to follow human intent.
+\end{itemize}
+
+%----------------------------------------------------------
+\section*{Chapter Summary}
+\addcontentsline{toc}{section}{Chapter Summary}
+
+\begin{enumerate}
+\item RL trains an agent to maximise cumulative discounted reward via trial and
+  error, without requiring labelled examples of correct actions.
+\item Key components: state $s$, action $a$, reward $R(s)$, discount $\gamma$,
+  policy $\pi$, return $G=\sum\gamma^k R_{k+1}$.
+\item An MDP formalises the problem under the Markov property.
+\item The Q-function $Q(s,a)$ gives the optimal return for taking action $a$
+  in state $s$ then acting optimally. $\pi^*(s)=\argmax_a Q(s,a)$.
+\item The \textbf{Bellman equation} $Q(s,a)=R(s)+\gamma\max_{a'}Q(s',a')$
+  is the recursive foundation of all Q-learning algorithms.
+\item In stochastic environments: $Q(s,a)=R(s)+\gamma\mathbb{E}[\max_{a'}Q(s',a')]$.
+\item Deep Q-Networks use a neural network to represent $Q$ over continuous
+  state spaces.
+\item Key engineering: replay buffer, mini-batch updates, soft target updates,
+  $\varepsilon$-greedy exploration with decay.
+\item RL deployment remains limited by the simulation-to-reality gap, but
+  RLHF is now critical for aligning large language models.
+\end{enumerate}

@@ -1,0 +1,241 @@
+% =========================================================
+%  Chapter 9: Recommender Systems
+% =========================================================
+\chapter{Recommender Systems}
+
+Recommender systems are among the most commercially successful applications of
+machine learning. They power suggestions on streaming platforms such as Netflix
+and Spotify, product recommendations on Amazon, and content feeds of social
+media platforms. At their core, they learn from past interactions between users
+and items to predict which items a user is most likely to enjoy next.
+
+Formally: $n$ users, $m$ items, rating matrix $\mathbf{R}\in\R^{n\times m}$
+where $r_{ui}$ is user $u$'s rating of item $i$. Because most users rate only
+a tiny fraction of items, this matrix is extremely \emph{sparse}. The task is
+to infer the missing entries.
+
+%----------------------------------------------------------
+\section{Collaborative Filtering}
+\label{sec:cf}
+
+\subsection{Core Idea}
+
+Collaborative filtering's fundamental assumption: \emph{users who agreed in the
+past tend to agree in the future}. No item content information is required.
+
+\subsection{Memory-Based CF}
+
+\subsubsection{User-Based CF}
+
+Find users similar to the target user; use their ratings to predict:
+\begin{equation}
+\hat{r}_{ui}=\bar{r}_u+\frac{\sum_{v\in\mathcal{N}(u)}\mathrm{sim}(u,v)(r_{vi}-\bar{r}_v)}
+{\sum_{v\in\mathcal{N}(u)}|\mathrm{sim}(u,v)|}.
+\end{equation}
+
+\subsubsection{Similarity Measures}
+
+\paragraph{Cosine similarity.}
+\[\mathrm{sim}_{\cos}(\mathbf{a},\mathbf{b})=\frac{\mathbf{a}\cdot\mathbf{b}}{\|\mathbf{a}\|_2\|\mathbf{b}\|_2}.\]
+
+\paragraph{Pearson correlation.}
+\[\mathrm{sim}_{\text{P}}(u,v)=\frac{\sum_{i\in\mathcal{I}_{uv}}(r_{ui}-\bar{r}_u)(r_{vi}-\bar{r}_v)}
+{\sqrt{\sum_i(r_{ui}-\bar{r}_u)^2}\,\sqrt{\sum_i(r_{vi}-\bar{r}_v)^2}}.\]
+
+\subsection{Model-Based CF: Matrix Factorisation}
+
+Approximate the rating matrix as a product of two low-rank factor matrices:
+\begin{equation}
+\mathbf{R}\approx\mathbf{U}\mathbf{V}^{\!\top},
+\label{eq:mf}
+\end{equation}
+$\mathbf{U}\in\R^{n\times k}$ (user factors), $\mathbf{V}\in\R^{m\times k}$
+(item factors), $k\ll\min(n,m)$. Predicted rating:
+\[\hat{r}_{ui}=\mathbf{u}_u\cdot\mathbf{v}_i.\]
+
+\paragraph{Learning.} Minimise regularised MSE over observed ratings:
+\begin{equation}
+J(\mathbf{U},\mathbf{V})=\frac{1}{|\Omega|}\sum_{(u,i)\in\Omega}
+(r_{ui}-\mathbf{u}_u\cdot\mathbf{v}_i)^2
++\lambda\!\Bigl(\sum_u\|\mathbf{u}_u\|^2+\sum_i\|\mathbf{v}_i\|^2\Bigr).
+\end{equation}
+
+SGD updates for observation $(u,i)$:
+\begin{align}
+e_{ui}&=r_{ui}-\mathbf{u}_u\cdot\mathbf{v}_i,\\
+\mathbf{u}_u&\leftarrow\mathbf{u}_u+\alpha(e_{ui}\mathbf{v}_i-\lambda\mathbf{u}_u),\\
+\mathbf{v}_i&\leftarrow\mathbf{v}_i+\alpha(e_{ui}\mathbf{u}_u-\lambda\mathbf{v}_i).
+\end{align}
+
+\paragraph{Bias terms.} An augmented model:
+\[\hat{r}_{ui}=\mu+b_u+b_i+\mathbf{u}_u\cdot\mathbf{v}_i,\]
+where $\mu$ is the global mean, $b_u$ the user bias, $b_i$ the item bias.
+
+\subsection{Limitations of Collaborative Filtering}
+
+\begin{itemize}
+\item \textbf{Cold-start problem}: new users or items with no ratings.
+\item \textbf{Popularity bias}: over-recommends popular items.
+\item \textbf{Filter bubbles}: reinforces existing preferences.
+\end{itemize}
+
+%----------------------------------------------------------
+\section{Implementation Details}
+
+\subsection{Cost Function}
+
+Let $n_u$ users, $n_m$ movies. Indicator $r^{(i,j)}=1$ if user $j$ rated
+movie $i$.
+
+\begin{equation}
+J=\frac{1}{2}\sum_{(i,j):\,r^{(i,j)}=1}
+\!\!\bigl(\vec{w}^{(j)}\cdot\vec{x}^{(i)}+b^{(j)}-y^{(i,j)}\bigr)^2
++\frac{\lambda}{2}\sum_j\sum_k(w_k^{(j)})^2
++\frac{\lambda}{2}\sum_i\sum_k(x_k^{(i)})^2.
+\label{eq:rec-cost}
+\end{equation}
+
+Unlike supervised learning, both user parameters $\{(\vec{w}^{(j)},b^{(j)})\}$
+and item features $\{\vec{x}^{(i)}\}$ are simultaneously optimised.
+
+\subsection{Mean Normalisation}
+
+A new user with no ratings yields $\vec{w}^{(j)}=\mathbf{0}$,
+$\hat{y}^{(i,j)}=0$ --- unhelpful. Mean normalisation:
+\[\mu_i=\frac{\sum_{j:\,r^{(i,j)}=1}y^{(i,j)}}{\sum_j r^{(i,j)}},\qquad
+y_{\text{norm}}^{(i,j)}=y^{(i,j)}-\mu_i.\]
+Prediction: $\hat{y}^{(i,j)}=\vec{w}^{(j)}\cdot\vec{x}^{(i)}+b^{(j)}+\mu_i$.
+A new user now gets $\hat{y}=\mu_i$ (average rating) --- a sensible default.
+
+\subsection{Finding Related Items}
+
+Learned item features $\vec{x}^{(i)}$ can be used to find similar items:
+\[\mathrm{sim}(i,i')=\|\vec{x}^{(i)}-\vec{x}^{(i')}\|_2^2.\]
+
+%----------------------------------------------------------
+\section{Content-Based Filtering}
+\label{sec:cbf}
+
+\subsection{Overview}
+
+Content-based filtering recommends items by matching item features to a model
+of the user's preferences. It does not need other users' data.
+
+\subsection{User Profile and Prediction}
+
+Let $\vec{x}^{(i)}\in\R^d$ be the feature vector for item $i$. A linear user
+profile $\vec{\theta}^{(j)}$ is estimated from rating history:
+\[\hat{y}^{(i,j)}=\vec{\theta}^{(j)}\cdot\vec{x}^{(i)}+b^{(j)}.\]
+
+\paragraph{Advantages.}
+\begin{itemize}
+\item Handles cold-start for new \emph{items} (as long as features are available).
+\item Explainable: ``recommended because you liked action movies.''
+\item No popularity bias.
+\end{itemize}
+
+\paragraph{Limitations.}
+\begin{itemize}
+\item Requires rich item features.
+\item Over-specialisation: keeps recommending similar content.
+\item User cold-start remains.
+\end{itemize}
+
+\subsection{Hybrid Systems}
+
+Production systems typically combine collaborative and content-based filtering.
+Google's YouTube recommender uses a two-tower neural network: one tower
+processes user features (including watch history), the other processes video
+content features; the final score is the dot product of the two embeddings.
+
+%----------------------------------------------------------
+\section{Principal Component Analysis}
+\label{sec:pca}
+
+\subsection{Motivation}
+
+Real-world data often contain far fewer independent sources of variation than
+the raw number of features suggests. PCA finds the directions of maximum
+variance and projects data onto a lower-dimensional subspace.
+
+\subsection{Mathematical Formulation}
+
+Let $\mathbf{X}\in\R^{n\times d}$ be mean-centred. The covariance matrix:
+\[\boldsymbol{\Sigma}=\frac{1}{n-1}\mathbf{X}^{\top}\mathbf{X}.\]
+
+The $l$-th principal component is the eigenvector of $\boldsymbol{\Sigma}$
+with the $l$-th largest eigenvalue $\lambda_l$. The projection:
+\[\mathbf{Z}=\mathbf{X}\mathbf{U}_k,\]
+where $\mathbf{U}_k\in\R^{d\times k}$ contains the top-$k$ eigenvectors.
+
+Equivalently via SVD: $\mathbf{X}=\mathbf{U}\mathbf{S}\mathbf{V}^{\top}$;
+principal components are the columns of $\mathbf{V}$.
+
+\subsection{Choosing the Number of Components}
+
+Fraction of variance explained:
+\[\mathrm{EVR}(k)=\frac{\sum_{l=1}^k\lambda_l}{\sum_{l=1}^d\lambda_l}.\]
+Common heuristic: choose $k$ such that $\mathrm{EVR}(k)\ge 0.95$.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.6\textwidth, height=5cm,
+  xlabel={Principal component}, ylabel={Variance explained (\%)},
+  xmin=0, xmax=8, ymin=0, ymax=58,
+  xtick={1,2,3,4,5,6,7},
+  grid=both, grid style={gray!15, thin},
+  tick label style={font=\small}, label style={font=\small},
+  axis lines=left,
+  every axis plot/.append style={line width=1.4pt}]
+\addplot[pBlue, mark=*, mark size=2.5pt]
+  coordinates{(1,50)(2,20)(3,12)(4,7)(5,4)(6,3)(7,2)};
+\addplot[pOrange, dashed, mark=*, mark size=2.5pt]
+  coordinates{(1,50)(2,70)(3,82)(4,89)(5,93)(6,96)(7,98)};
+\draw[pRed, dashed, thin] (axis cs:0,50) -- (axis cs:8,50);
+\node[right, font=\small, pRed] at (axis cs:0.1,52)
+  {PC1: 50\% of variance};
+\end{axis}
+\end{tikzpicture}
+\caption{Scree plot (blue, left axis) and cumulative variance explained (orange,
+right axis). Most variance is captured by the first few components.}
+\label{fig:scree}
+\end{figure}
+
+\subsection{PCA in Recommender Systems}
+
+\begin{enumerate}
+\item \textbf{Dimensionality reduction}: compress high-dimensional content
+  features before feeding into a model.
+\item \textbf{Latent Semantic Analysis}: truncated SVD directly on the
+  user--item matrix fills in missing ratings:
+  $\hat{\mathbf{R}}=\mathbf{U}_k\mathbf{S}_k\mathbf{V}_k^{\top}$.
+\item \textbf{Visualisation}: project learned embeddings to 2D/3D.
+\item \textbf{Noise reduction}: discard small singular values.
+\end{enumerate}
+
+\paragraph{Connection to matrix factorisation.}
+For a fully observed matrix with no regularisation, the rank-$k$ matrix
+factorisation recovers exactly the truncated SVD:
+\[\underset{\mathbf{U},\mathbf{V}}{\argmin}
+\|\mathbf{R}-\mathbf{U}\mathbf{V}^{\top}\|_F^2
+=\mathbf{U}_k\mathbf{S}_k\mathbf{V}_k^{\top}.\]
+
+%----------------------------------------------------------
+\section*{Chapter Summary}
+\addcontentsline{toc}{section}{Chapter Summary}
+
+\begin{enumerate}
+\item \textbf{Collaborative filtering} exploits shared preferences. Matrix
+  factorisation learns compact latent representations optimised by SGD or ALS.
+\item \textbf{Mean normalisation} gives sensible default predictions for new
+  users.
+\item \textbf{Content-based filtering} builds a per-user preference model from
+  item features; handles item cold-start but can over-specialise.
+\item \textbf{PCA} extracts the principal axes of variation; it underpins matrix
+  factorisation and is used for dimensionality reduction, noise filtering, and
+  latent semantic analysis.
+\item Production systems \textbf{combine} both paradigms in large-scale deep
+  learning architectures.
+\end{enumerate}

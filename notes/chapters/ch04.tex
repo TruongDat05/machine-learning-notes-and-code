@@ -1,0 +1,339 @@
+% =========================================================
+%  Chapter 4: Neural Networks
+% =========================================================
+\chapter{Neural Networks}
+
+%----------------------------------------------------------
+\section{Neural Networks Intuition}
+
+\subsection{Biological Inspiration and Engineering Reality}
+
+The original motivation behind \textbf{Artificial Neural Networks (ANNs)} ---
+often called simply \emph{neural networks} or \emph{deep learning} models ---
+was to create software that mimics the learning processes of the human brain.
+While modern engineering has largely moved beyond strict biological analogies,
+the foundational vocabulary still draws on neuroscience.
+
+A \textbf{biological neuron} processes information in three stages:
+\begin{enumerate}
+\item \textbf{Dendrites} receive incoming electrical impulses from other neurons.
+\item The \textbf{cell body (soma)} aggregates and processes these signals.
+\item The \textbf{axon} transmits the resulting output to downstream neurons.
+\end{enumerate}
+
+An \textbf{artificial neuron} is a mathematical abstraction of this process.
+It takes numerical inputs, computes a weighted sum, applies a non-linear
+function, and emits an \textit{activation value}.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[>=Stealth, thick, font=\small]
+% Biological neuron
+\node[draw, ellipse, fill=nodeGray!50, minimum width=2.4cm,
+      minimum height=1.3cm] (soma) at (0,0) {Cell Body};
+\foreach \y/\lbl in {0.7/Dendrite 1, 0/{Dendrite 2}, -0.7/{Dendrite 3}}{
+  \draw[->] (-3.0,\y) node[left]{\lbl} -- (soma);}
+\draw[->] (soma) -- (3.0,0) node[right]{Axon};
+% separator
+\draw[dashed, pGray] (4.2,1.3) -- (4.2,-1.3);
+\node at (4.2,1.55) {\small\textit{vs.}};
+% Artificial neuron
+\node[draw, circle, fill=nodeBlue!60, minimum size=1.6cm]
+     (anode) at (7.5,0) {$\Sigma\;g$};
+\foreach \y/\lbl in {0.7/{$x_1$}, 0/{$x_2$}, -0.7/{$x_3$}}{
+  \draw[->] (5.4,\y) node[left]{\lbl} -- (anode);}
+\draw[->] (anode) -- (9.6,0) node[right]{$a$};
+% labels
+\node[above=0.35cm of soma,  font=\footnotesize\itshape]
+     {Biological neuron};
+\node[above=0.35cm of anode, font=\footnotesize\itshape]
+     {Artificial neuron};
+\end{tikzpicture}
+\caption{Structural analogy between a biological neuron and an artificial
+neuron. The artificial neuron computes a weighted sum ($\Sigma$) and applies a
+non-linear function ($g$) to produce the activation $a$.}
+\label{fig:bio-neuron}
+\end{figure}
+
+\begin{remark}
+Despite the name, modern neural networks have very little to do with how the
+brain actually works. We still understand remarkably little about neuroscience.
+Today's AI systems are driven primarily by \textit{engineering principles} and
+large-scale empirical results rather than by neurological simulation.
+\end{remark}
+
+\subsection{A Brief History and the Data-Compute Story}
+
+The development of neural networks has passed through alternating periods of
+enthusiasm and neglect:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Era} & \textbf{Status} & \textbf{Key developments}\\
+\midrule
+1950s & Inception & Brain-inspired computing first proposed\\
+1980s--early 1990s & First wave & Handwritten digit recognition (zip codes)\\
+Late 1990s & Decline & Outperformed by SVMs and other ML methods\\
+2005--present & Resurgence & Rebranded as ``Deep Learning''; breakthroughs\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The key milestones in the modern era include: speech recognition (early 2010s),
+ImageNet 2012 (landmark computer vision result), NLP with Transformers, and
+today's large language models.
+
+\paragraph{Why now?}
+Traditional algorithms exhibit a characteristic performance ceiling; beyond a
+certain amount of training data, adding more examples yields diminishing
+returns. Large neural networks, by contrast, continue to improve as datasets
+grow. Two enabling factors: the explosion of digital data from the internet,
+and GPU hardware providing the massive parallel computation needed.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=10cm, height=6cm,
+  xlabel={Amount of Training Data},
+  ylabel={Model Performance},
+  xmin=0, xmax=10, ymin=0, ymax=10,
+  xtick=\empty, ytick=\empty,
+  legend style={at={(0.97,0.25)}, anchor=east, font=\small, fill=white},
+  axis lines=left,
+  every axis plot/.append style={line width=1.4pt}]
+\addplot[pOrange, domain=0:10, samples=200]{7*(1-exp(-0.8*x))};
+\addlegendentry{Traditional ML}
+\addplot[pBlue, dashed, domain=0:10, samples=200]{8*(1-exp(-0.5*x))};
+\addlegendentry{Small neural network}
+\addplot[pBlue, domain=0:10, samples=200]{9.5*(1-exp(-0.25*x))};
+\addlegendentry{Large neural network}
+\end{axis}
+\end{tikzpicture}
+\caption{Schematic performance versus training data size. Large neural networks
+continue to benefit from additional data, whereas classical methods plateau.}
+\label{fig:scaling}
+\end{figure}
+
+%----------------------------------------------------------
+\section{Neural Network Model}
+
+\subsection{The Single Neuron}
+
+A single artificial neuron applies a \textbf{sigmoid activation function}:
+\begin{equation}
+a=g(z)=\frac{1}{1+e^{-z}},\qquad z=wx+b.
+\label{eq:single-neuron}
+\end{equation}
+The term \emph{activation} is borrowed from neuroscience: just as a biological
+neuron fires when stimulated strongly enough, an artificial neuron emits a
+large output when its weighted input is large.
+
+\subsection{Layered Architecture}
+
+When multiple neurons are combined in a layered structure, the network can
+capture complex non-linear relationships. A standard feedforward network has:
+\begin{itemize}
+\item \textbf{Input layer (Layer 0)}: the raw feature vector
+  $\vec{x}\in\R^n$, also denoted $\va^{[0]}$.
+\item \textbf{Hidden layers}: one or more intermediate layers. Each neuron in
+  a hidden layer is a logistic-regression unit whose inputs are the activations
+  of the previous layer.
+\item \textbf{Output layer}: produces the final prediction.
+\end{itemize}
+The term \textit{hidden} means these layers are not directly observed in the
+training data — we see only inputs $\vec{x}$ and labels $y$.
+
+\subsection{Notation}
+
+\begin{itemize}
+\item Superscript $[l]$ denotes the \textbf{layer index}: $[1],[2],\ldots$
+\item Subscript $j$ denotes the \textbf{neuron index} within a layer.
+\item $a_j^{[l]}$: activation of neuron $j$ in layer $l$.
+\item $\vw_j^{[l]}\in\R^{n_{l-1}}$, $b_j^{[l]}\in\R$: weight vector and bias.
+\item $\va^{[l]}$: vector of all activations in layer $l$.
+\item $\va^{[0]}=\vec{x}$ by definition.
+\end{itemize}
+
+\subsection{The General Activation Formula}
+
+For any layer $l$ and unit $j$:
+\begin{equation}
+\boxed{a_j^{[l]}=g\!\Bigl(\vw_j^{[l]}\cdot\va^{[l-1]}+b_j^{[l]}\Bigr).}
+\label{eq:activation}
+\end{equation}
+This single formula, applied repeatedly across layers and units, describes the
+entire forward computation of a feedforward neural network.
+
+\subsection{Layered Computation: Example}
+
+Consider a network with architecture $n=4$ inputs, hidden layers of sizes 3
+and 3, and a single output.
+
+\textbf{Layer 1} (3 neurons, input $\va^{[0]}=\vec{x}$):
+\begin{align*}
+a_1^{[1]}&=g(\vw_1^{[1]}\cdot\vec{x}+b_1^{[1]}),\\
+a_2^{[1]}&=g(\vw_2^{[1]}\cdot\vec{x}+b_2^{[1]}),\\
+a_3^{[1]}&=g(\vw_3^{[1]}\cdot\vec{x}+b_3^{[1]}).
+\end{align*}
+Layer output: $\va^{[1]}=[a_1^{[1]},a_2^{[1]},a_3^{[1]}]^{\top}$.
+
+\textbf{Layer 2} (output, 1 neuron):
+\[a_1^{[2]}=g(\vw_1^{[2]}\cdot\va^{[1]}+b_1^{[2]})\in(0,1).\]
+
+\textbf{Prediction}: $\hat{y}=1$ if $a_1^{[2]}\ge 0.5$, else $\hat{y}=0$.
+
+\subsection{Deep Architectures and Hierarchical Features}
+
+Networks with more than one hidden layer are called \textbf{deep networks},
+and the field studying them is \textbf{deep learning}. In computer vision,
+visualisation studies reveal a remarkable hierarchy of learned features:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Layer} & \textbf{Features detected} & \textbf{Description}\\
+\midrule
+1st hidden & Edges, oriented lines & Short segments at various angles\\
+2nd hidden & Object parts & Eyes, corners, wheels\\
+3rd hidden & Coarse shapes & Full face or car outlines\\
+Output     & Category/identity & Final classification probability\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Crucially, \textbf{no human defines these features} — the network discovers
+them automatically by minimising prediction error.
+
+%----------------------------------------------------------
+\section{TensorFlow Implementation}
+
+\subsection{Data Representation}
+
+TensorFlow processes data in \textbf{two-dimensional matrices} (tensors). Always
+use 2D arrays when passing data to layers (shape: samples $\times$ features).
+
+\subsection{The Dense Layer and Sequential API}
+
+\begin{lstlisting}[caption={Sequential model for coffee roasting classification}]
+import numpy as np
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+
+# Define architecture
+model = Sequential([
+    Dense(units=3, activation='sigmoid'),   # Hidden layer: 3 neurons
+    Dense(units=1, activation='sigmoid')    # Output layer: 1 neuron
+])
+\end{lstlisting}
+
+\subsection{The Training Workflow}
+
+After defining architecture, training follows three steps:
+\begin{enumerate}
+\item \textbf{Compile} — specify loss and optimiser:
+\begin{lstlisting}
+model.compile(loss='binary_crossentropy', optimizer='adam')
+\end{lstlisting}
+\item \textbf{Train} — fit the model:
+\begin{lstlisting}
+model.fit(X_train, y_train, epochs=100)
+\end{lstlisting}
+\item \textbf{Predict}:
+\begin{lstlisting}
+predictions = model.predict(X_new)
+\end{lstlisting}
+\end{enumerate}
+
+\subsection{Complete Example: Digit Recognition}
+
+For $8\times 8$ pixel handwritten digit images ($64$ input features):
+\begin{lstlisting}[caption={Neural network for handwritten digit recognition}]
+model = Sequential([
+    Dense(units=25, activation='sigmoid'),  # Layer 1: 25 units
+    Dense(units=15, activation='sigmoid'),  # Layer 2: 15 units
+    Dense(units=1,  activation='sigmoid')   # Output:   1 unit
+])
+\end{lstlisting}
+The network compresses the representation from 64 dimensions down to a single
+probability.
+
+%----------------------------------------------------------
+\section{Forward Propagation in NumPy}
+
+Understanding how to implement forward propagation manually is essential for
+debugging and appreciating the linear algebra underlying every deep learning
+framework.
+
+\begin{lstlisting}[caption={Reusable \texttt{dense()} layer function}]
+import numpy as np
+
+def sigmoid(z):
+    return 1.0 / (1.0 + np.exp(-z))
+
+def dense(a_in, W, b, activation=sigmoid):
+    """
+    a_in : (n_in,)       activations from previous layer
+    W    : (n_in, units) weight matrix (each COLUMN = one neuron)
+    b    : (units,)      bias vector
+    """
+    n_units = W.shape[1]
+    a_out   = np.zeros(n_units)
+    for j in range(n_units):
+        w_j       = W[:, j]
+        z_j       = np.dot(w_j, a_in) + b[j]
+        a_out[j]  = activation(z_j)
+    return a_out
+
+def sequential(x, W1, b1, W2, b2):
+    """Full forward pass through a 2-layer network."""
+    a1  = dense(x,  W1, b1)
+    a2  = dense(a1, W2, b2)
+    return a2
+\end{lstlisting}
+
+\subsection{Vectorised Implementation}
+
+\begin{lstlisting}[caption={Vectorised dense layer using \texttt{np.matmul}}]
+def dense_vectorised(A_in, W, b, activation=sigmoid):
+    """
+    A_in : (1, n_in) -- 2D row vector input
+    W    : (n_in, units)
+    b    : (1, units) or broadcastable
+    Returns A_out : (1, units)
+    """
+    Z     = np.matmul(A_in, W) + b   # (1, units)
+    A_out = activation(Z)             # element-wise
+    return A_out
+\end{lstlisting}
+
+For a batch of $m$ examples, $A_{\text{in}}$ has shape $(m\times n_{\text{in}})$
+and one \texttt{matmul} computes all $m$ predictions simultaneously.
+
+%----------------------------------------------------------
+\section{Speculations on Artificial General Intelligence}
+
+Current neural networks are \textbf{Artificial Narrow Intelligence (ANI)}:
+trained for a specific task. \textbf{Artificial General Intelligence (AGI)}
+would be capable of any intellectual task a human can perform and remains an
+unsolved problem. Credible expert estimates for AGI range from ``within the
+decade'' to ``never, as currently conceived'' — highlighting how poorly we
+understand both the requirements for general intelligence and the trajectory of
+AI progress.
+
+%----------------------------------------------------------
+\section*{Chapter Summary}
+\addcontentsline{toc}{section}{Chapter Summary}
+
+\begin{itemize}
+\item A neural network stacks layers of artificial neurons, each computing
+  $a_j^{[l]}=g(\vw_j^{[l]}\cdot\va^{[l-1]}+b_j^{[l]})$.
+\item Deep networks automatically learn hierarchical features from data without
+  any human-defined feature engineering.
+\item TensorFlow's Sequential API defines, compiles, and trains a network in a
+  few lines; the training loop internally uses backpropagation.
+\item NumPy-level implementation reveals the matrix multiply at the core of
+  every deep learning framework.
+\item Vectorisation (batch matrix operations) is essential for efficiency.
+\end{itemize}
