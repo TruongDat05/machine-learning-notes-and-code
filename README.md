@@ -1,11 +1,10 @@
-# Machine-Learning
 # Machine Learning Specialization — Study Notes & Labs
+
+<p align="center">
+  <img src="assets/banner.png" alt="Machine Learning Specialization Banner" width="800"/>
+</p>
 
 Personal notes and lab notebooks from the [Machine Learning Specialization](https://www.coursera.org/specializations/machine-learning-introduction) by **DeepLearning.AI & Stanford Online** (Coursera), instructed by **Prof. Andrew Ng**.
-![Machine Learning Specialization](assets/banner.png)
-
-# Machine Learning Specialization — Study Notes & Labs
-...
 
 ---
 
@@ -117,6 +116,14 @@ an **issue** or **pull request**. Feedback is always welcome.
 
 > Ng, A., Shyu, E., Bagul, A., & Ladwig, G. (2022). *Machine Learning Specialization* [Online course]. DeepLearning.AI & Stanford Online, Coursera.
 > https://www.coursera.org/specializations/machine-learning-introduction
+
+---
+
+## 🏆 Certification
+
+<p align="center">
+  <img src="assets/Certification.png" alt="Machine Learning Specialization Certificate" width="700"/>
+</p>
 
 ---
 
