@@ -46,6 +46,7 @@ Machine-Learning/
 A self-compiled LaTeX textbook covering all 10 chapters of the specialization — from linear regression to reinforcement learning.
 
 **📄 Read the full PDF: [`notes/main.pdf`](notes/main.pdf)**
+**!! More detailed notes PDF: [`notes/chapters/Lecture_notes.pdf`](notes/chapters/Lecture_notes.pdf) **
 
 ### Table of Contents
 
